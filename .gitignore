@@ -1,0 +1,16 @@
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+
+# VS Code
+.vscode/
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+*.trx
