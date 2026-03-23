@@ -1,6 +1,7 @@
 ﻿namespace OrganizeMedia.App;
 
 using OrganizeMedia.Framework;
+using System.IO;
 
 class Program
 {
@@ -8,8 +9,8 @@ class Program
     {
         Console.WriteLine("Hello, World!");
         Workflow workflow = WorkflowExamples.CreateStaticSampleWorkflow();
-        workflow.ConsoleWrite();
-        workflow.RunToCompletion();
+        Console.WriteLine(workflow.ToGraphDisplayString());
+        workflow.RunToCompletion(observer: new TextWriterWorkflowObserver(Console.Out));
         Console.WriteLine("Goodbye, World!");
     }
 }

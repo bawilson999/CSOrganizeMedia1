@@ -5,6 +5,7 @@ public class Workflow
     TaskGraph _taskGraph = null;
     WorkflowExecutionState _executionState = null;
     Dictionary<TaskId, Task> _tasksById = null;
+    private IWorkflowObserver _observer = NullWorkflowObserver.Instance;
 
     public Workflow(WorkflowId workflowId)
         : this(workflowId, maxConcurrency: null)
@@ -92,6 +93,7 @@ public class Workflow
 
     public void MarkReadyToRun()
     {
+        WorkflowStatus previousStatus = Status;
         ExecutionPhase currentPhase = _executionState.ExecutionPhase;
         ExecutionRecoverability currentRecoverability = _executionState.Recoverability;
 
@@ -107,32 +109,35 @@ public class Workflow
         _executionState.Error = null;
         _executionState.Output = null;
         _executionState.ExecutionPhase = ExecutionPhase.ReadyToRun;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkQueued()
     {
+        WorkflowStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.ReadyToRun);
         _executionState.ExecutionPhase = ExecutionPhase.Queued;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkRunning()
     {
+        WorkflowStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Queued);
         _executionState.ExecutionPhase = ExecutionPhase.Running;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkSucceeded(ExecutionOutput output = null)
     {
+        WorkflowStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
         _executionState.ExecutionPhase = ExecutionPhase.Finished;
         _executionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
         _executionState.FailureKind = ExecutionFailureKind.None;
         _executionState.Error = null;
         _executionState.Output = output;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkCanceled(
@@ -140,6 +145,7 @@ public class Workflow
         ErrorInfo error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
+        WorkflowStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
 
         if (!IsTerminalRecoverability(recoverability))
@@ -156,7 +162,7 @@ public class Workflow
         _executionState.Error = error;
         _executionState.Output = output;
         _executionState.Recoverability = recoverability;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkFailed(
@@ -165,6 +171,7 @@ public class Workflow
         ErrorInfo error = null,
         ExecutionRecoverability? recoverability = null)
     {
+        WorkflowStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
 
         if (failureKind == ExecutionFailureKind.None)
@@ -195,7 +202,7 @@ public class Workflow
         _executionState.Error = error;
         _executionState.Output = output;
         _executionState.Recoverability = effectiveRecoverability;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkFailed(
@@ -220,6 +227,7 @@ public class Workflow
             throw new InvalidOperationException($"Workflow {WorkflowId} already contains task {task.TaskId}.");
         }
 
+        task.SetObserver(_observer);
         _taskGraph.AddTask(task);
         _tasksById.Add(task.TaskId, task);
         _executionState.AddTaskExecutionState(task.ExecutionState);
@@ -237,6 +245,7 @@ public class Workflow
 
         Task task = new Task(WorkflowId, taskSpecification);
         AddTask(task);
+        NotifyTaskAdded(task);
         return task;
     }
 
@@ -266,6 +275,7 @@ public class Workflow
         }
 
         AddAdjacency(prerequisiteTask, dependentTask);
+        NotifyDependencyAdded(dependency);
     }
 
     private static bool HasNotStartedExecution(Task task)
@@ -304,6 +314,8 @@ public class Workflow
                 PrerequisiteTaskId: prerequisiteTaskId,
                 DependentTaskId: fanInSpecification.JoinTaskId));
         }
+
+        NotifyFanInExpanded(fanInSpecification.JoinTaskId, prerequisiteTaskIds.ToArray());
     }
 
     public TaskList TopologicalSort()
@@ -331,24 +343,105 @@ public class Workflow
         return _taskGraph.GetDependencies(task);
     }
 
-    public void RunToCompletion(ITaskExecutor taskExecutor = null)
+    public void RunToCompletion(ITaskExecutor taskExecutor = null, IWorkflowObserver observer = null)
     {
+        if (observer is not null)
+        {
+            SetObserver(observer);
+        }
+
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(taskExecutor);
         orchestrator.RunToCompletion(this);
     }
 
-    public void ConsoleWrite()
+    public void SetObserver(IWorkflowObserver observer)
+    {
+        _observer = observer ?? NullWorkflowObserver.Instance;
+
+        foreach (Task task in _tasksById.Values)
+        {
+            task.SetObserver(_observer);
+        }
+    }
+
+    public string ToGraphDisplayString()
     {
         TaskListDictionary adjacencyList = _taskGraph.GetAdjacencyList();
-        Console.WriteLine("Adjacency list: ");
-        adjacencyList.ConsoleWrite();
-
         TaskListDictionary dependencyList = _taskGraph.GetDependencyList();
-        Console.WriteLine("Dependency list: ");
-        dependencyList.ConsoleWrite();
-
         TaskList tasks = TopologicalSort();
-        Console.WriteLine("Topological order: ");
-        tasks.ConsoleWrite();
+
+        return string.Join(
+            Environment.NewLine,
+            [
+                "Adjacency list:",
+                adjacencyList.ToDisplayString(),
+                "Dependency list:",
+                dependencyList.ToDisplayString(),
+                "Topological order:",
+                tasks.ToDisplayString()
+            ]);
+    }
+
+    private void NotifyTransition(WorkflowStatus previousStatus)
+    {
+        WorkflowStatus currentStatus = Status;
+
+        try
+        {
+            _observer.OnWorkflowTransition(new WorkflowTransitionEvent(
+                WorkflowId: WorkflowId,
+                PreviousStatus: previousStatus,
+                CurrentStatus: currentStatus,
+                Timestamp: currentStatus.Timestamp ?? DateTime.UtcNow));
+        }
+        catch
+        {
+        }
+    }
+
+    private void NotifyTaskAdded(Task task)
+    {
+        try
+        {
+            _observer.OnTaskAdded(new TaskAddedEvent(
+                WorkflowId: WorkflowId,
+                TaskId: task.TaskId,
+                TaskSpecification: task.Specification,
+                TaskStatus: task.Status,
+                Timestamp: task.Status.Timestamp ?? DateTime.UtcNow));
+        }
+        catch
+        {
+        }
+    }
+
+    private void NotifyDependencyAdded(TaskDependencySpecification dependency)
+    {
+        try
+        {
+            _observer.OnDependencyAdded(new DependencyAddedEvent(
+                WorkflowId: WorkflowId,
+                PrerequisiteTaskId: dependency.PrerequisiteTaskId,
+                DependentTaskId: dependency.DependentTaskId,
+                Timestamp: DateTime.UtcNow));
+        }
+        catch
+        {
+        }
+    }
+
+    private void NotifyFanInExpanded(TaskId joinTaskId, IReadOnlyCollection<TaskId> prerequisiteTaskIds)
+    {
+        try
+        {
+            _observer.OnFanInExpanded(new FanInExpandedEvent(
+                WorkflowId: WorkflowId,
+                JoinTaskId: joinTaskId,
+                PrerequisiteTaskIds: prerequisiteTaskIds,
+                Timestamp: DateTime.UtcNow));
+        }
+        catch
+        {
+        }
     }
 }

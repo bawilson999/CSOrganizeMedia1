@@ -10,18 +10,8 @@ public class TaskList : List<Task>
     {
     }
 
-    public void ConsoleWrite()
+    public string ToDisplayString()
     {
-        Console.Write("[");
-        bool writeComma = false;
-        foreach (Task task in this)
-        {
-            if (writeComma)
-                Console.Write(",");
-            else
-                writeComma = true;
-            Console.Write(task);
-        }
-        Console.WriteLine("]");
+        return $"[{string.Join(",", this)}]";
     }
 }

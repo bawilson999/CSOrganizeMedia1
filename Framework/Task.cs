@@ -2,6 +2,8 @@ namespace OrganizeMedia.Framework;
 
 public class Task
 {
+    private IWorkflowObserver _observer;
+
     public Task(WorkflowId workflowId, TaskId taskId)
         : this(workflowId, new TaskSpecification(taskId, TaskType: "Task"))
     {
@@ -20,6 +22,7 @@ public class Task
         TaskId = specification.TaskId;
         Specification = specification;
         ExecutionState = executionState;
+        _observer = NullWorkflowObserver.Instance;
     }
 
     public WorkflowId WorkflowId { get; init; }
@@ -68,6 +71,7 @@ public class Task
 
     public void MarkReadyToRun()
     {
+        TaskStatus previousStatus = Status;
         ExecutionPhase currentPhase = ExecutionState.ExecutionPhase;
         ExecutionRecoverability currentRecoverability = ExecutionState.Recoverability;
 
@@ -89,25 +93,28 @@ public class Task
             ExecutionState.CompletedSteps = 0;
 
         ExecutionState.ExecutionPhase = ExecutionPhase.ReadyToRun;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkQueued()
     {
+        TaskStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.ReadyToRun);
         ExecutionState.ExecutionPhase = ExecutionPhase.Queued;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkRunning()
     {
+        TaskStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Queued);
         ExecutionState.ExecutionPhase = ExecutionPhase.Running;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkSucceeded(ExecutionOutput output = null)
     {
+        TaskStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
         ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
         ExecutionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
@@ -115,7 +122,7 @@ public class Task
         ExecutionState.CompletedSteps = ExecutionState.TotalSteps;
         ExecutionState.Error = null;
         ExecutionState.Output = output;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkCanceled(
@@ -123,6 +130,7 @@ public class Task
         ErrorInfo error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
+        TaskStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
 
         if (!IsTerminalRecoverability(recoverability))
@@ -139,7 +147,7 @@ public class Task
         ExecutionState.Error = error;
         ExecutionState.Output = output;
         ExecutionState.Recoverability = recoverability;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkFailed(
@@ -148,6 +156,7 @@ public class Task
         ErrorInfo error = null,
         ExecutionRecoverability? recoverability = null)
     {
+        TaskStatus previousStatus = Status;
         EnsurePhase(ExecutionPhase.Running);
 
         if (failureKind == ExecutionFailureKind.None)
@@ -178,7 +187,7 @@ public class Task
         ExecutionState.Error = error;
         ExecutionState.Output = output;
         ExecutionState.Recoverability = effectiveRecoverability;
-        Console.WriteLine(ToDisplayString());
+        NotifyTransition(previousStatus);
     }
 
     public void MarkFailed(
@@ -196,6 +205,8 @@ public class Task
 
     internal void ResetToNotStarted()
     {
+        TaskStatus previousStatus = Status;
+
         if (ExecutionState.ExecutionPhase == ExecutionPhase.Running ||
             ExecutionState.ExecutionPhase == ExecutionPhase.Finished)
         {
@@ -209,5 +220,29 @@ public class Task
         ExecutionState.CompletedSteps = 0;
         ExecutionState.Error = null;
         ExecutionState.Output = null;
+        NotifyTransition(previousStatus);
+    }
+
+    internal void SetObserver(IWorkflowObserver observer)
+    {
+        _observer = observer ?? NullWorkflowObserver.Instance;
+    }
+
+    private void NotifyTransition(TaskStatus previousStatus)
+    {
+        TaskStatus currentStatus = Status;
+
+        try
+        {
+            _observer.OnTaskTransition(new TaskTransitionEvent(
+                WorkflowId: WorkflowId,
+                TaskId: TaskId,
+                PreviousStatus: previousStatus,
+                CurrentStatus: currentStatus,
+                Timestamp: currentStatus.Timestamp ?? DateTime.UtcNow));
+        }
+        catch
+        {
+        }
     }
 }

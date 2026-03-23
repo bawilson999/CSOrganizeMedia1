@@ -10,12 +10,10 @@ public class TaskListDictionary : Dictionary<Task, TaskList>
     {
     }
 
-    public void ConsoleWrite()
+    public string ToDisplayString()
     {
-        foreach ((Task task, TaskList taskList) in this)
-        {
-            Console.Write($"{task}: ");
-            taskList.ConsoleWrite();
-        }
+        return string.Join(
+            Environment.NewLine,
+            this.Select(pair => $"{pair.Key}: {pair.Value.ToDisplayString()}"));
     }
 }
