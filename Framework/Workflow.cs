@@ -199,7 +199,53 @@ public class Workflow
         _taskGraph.AddAdjacency(task, adjacentTask);
     }
 
-    public Task RuntimeAddTask(TaskSpecification taskSpecification)
+    internal void ApplyRuntimeMutations(Task currentTask, TaskExecutionResult executionResult)
+    {
+        ArgumentNullException.ThrowIfNull(currentTask);
+        ArgumentNullException.ThrowIfNull(executionResult);
+
+        IReadOnlyCollection<TaskSpecification> spawnedTasks = executionResult.SpawnedTasks ?? Array.Empty<TaskSpecification>();
+        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = executionResult.AddedDependencies ?? Array.Empty<TaskDependencySpecification>();
+        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = executionResult.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
+
+        if (executionResult.ExecutionOutcome != ExecutionOutcome.Succeeded &&
+            (spawnedTasks.Count > 0 || addedDependencies.Count > 0 || fanInSpecifications.Count > 0))
+        {
+            throw new InvalidOperationException(
+                $"Task {currentTask.TaskId} can only emit runtime graph mutations on successful completion.");
+        }
+
+        List<TaskId> spawnedTaskIds = new List<TaskId>();
+
+        foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
+        {
+            TaskSpecification normalizedSpecification = spawnedTaskSpecification;
+
+            if (normalizedSpecification.SpawnedByTaskId is null)
+            {
+                normalizedSpecification = normalizedSpecification with
+                {
+                    SpawnedByTaskId = currentTask.TaskId
+                };
+            }
+
+            RuntimeAddTask(normalizedSpecification);
+            spawnedTaskIds.Add(normalizedSpecification.TaskId);
+        }
+
+        foreach (TaskDependencySpecification dependency in addedDependencies)
+        {
+            RuntimeAddDependency(dependency);
+        }
+
+        foreach (TaskFanInSpecification fanInSpecification in fanInSpecifications)
+        {
+            RuntimeAddFanIn(fanInSpecification, spawnedTaskIds);
+        }
+
+    }
+
+    internal Task RuntimeAddTask(TaskSpecification taskSpecification)
     {
         ArgumentNullException.ThrowIfNull(taskSpecification);
         taskSpecification.Validate();
@@ -210,7 +256,7 @@ public class Workflow
         return task;
     }
 
-    public void RuntimeAddDependency(TaskDependencySpecification dependency)
+    internal void RuntimeAddDependency(TaskDependencySpecification dependency)
     {
         if (!_tasksById.TryGetValue(dependency.PrerequisiteTaskId, out Task prerequisiteTask))
         {
@@ -244,7 +290,7 @@ public class Workflow
         return ExecutionTransitionSupport.HasNotStartedExecution(task.Status.ExecutionPhase);
     }
 
-    public void RuntimeAddFanIn(TaskFanInSpecification fanInSpecification, IReadOnlyCollection<TaskId> spawnedTaskIds)
+    internal void RuntimeAddFanIn(TaskFanInSpecification fanInSpecification, IReadOnlyCollection<TaskId> spawnedTaskIds)
     {
         ArgumentNullException.ThrowIfNull(fanInSpecification);
         fanInSpecification.Validate();

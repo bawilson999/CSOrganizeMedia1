@@ -73,7 +73,7 @@ public class WorkflowOrchestrator
                     return;
                 }
 
-                ApplyDynamicMutations(workflow, currentTask, executionResult);
+                workflow.ApplyRuntimeMutations(currentTask, executionResult);
 
                 currentTask = null;
             }
@@ -144,51 +144,6 @@ public class WorkflowOrchestrator
         task.MarkReadyToRun();
         task.MarkQueued();
         readyQueue.Enqueue(task);
-    }
-
-    private static void ApplyDynamicMutations(
-        Workflow workflow,
-        Task currentTask,
-        TaskExecutionResult executionResult)
-    {
-        IReadOnlyCollection<TaskSpecification> spawnedTasks = executionResult.SpawnedTasks ?? Array.Empty<TaskSpecification>();
-        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = executionResult.AddedDependencies ?? Array.Empty<TaskDependencySpecification>();
-        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = executionResult.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
-
-        if (executionResult.ExecutionOutcome != ExecutionOutcome.Succeeded &&
-            (spawnedTasks.Count > 0 || addedDependencies.Count > 0 || fanInSpecifications.Count > 0))
-        {
-            throw new InvalidOperationException(
-                $"Task {currentTask.TaskId} can only emit runtime graph mutations on successful completion.");
-        }
-
-        List<TaskId> spawnedTaskIds = new List<TaskId>();
-
-        foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
-        {
-            TaskSpecification normalizedSpecification = spawnedTaskSpecification;
-
-            if (normalizedSpecification.SpawnedByTaskId is null)
-            {
-                normalizedSpecification = normalizedSpecification with
-                {
-                    SpawnedByTaskId = currentTask.TaskId
-                };
-            }
-
-            workflow.RuntimeAddTask(normalizedSpecification);
-            spawnedTaskIds.Add(normalizedSpecification.TaskId);
-        }
-
-        foreach (TaskDependencySpecification dependency in addedDependencies)
-        {
-            workflow.RuntimeAddDependency(dependency);
-        }
-
-        foreach (TaskFanInSpecification fanInSpecification in fanInSpecifications)
-        {
-            workflow.RuntimeAddFanIn(fanInSpecification, spawnedTaskIds);
-        }
     }
 
     private static void ApplyExecutionResult(Task task, TaskExecutionResult executionResult)
