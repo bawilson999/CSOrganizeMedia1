@@ -278,7 +278,7 @@ public class Workflow
         ArgumentNullException.ThrowIfNull(currentTask);
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        TaskGraphChanges graphChanges = executionResult.GraphChanges;
+        WorkflowGraphChanges graphChanges = executionResult.GraphChanges;
         IReadOnlyCollection<TaskSpecification> spawnedTasks = graphChanges.SpawnedTasks;
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = graphChanges.AddedDependencies;
         IReadOnlyCollection<TaskSpecificationSpawn> spawnedTaskSpecifications = graphChanges.SpawnedTaskSpecifications;
@@ -341,13 +341,9 @@ public class Workflow
         InputType? effectiveInputType = taskSpecificationSpawn.InputType ?? taskSpecification.InputType;
         string? effectiveInputJson = taskSpecificationSpawn.InputJson ?? taskSpecification.InputJson;
 
-        TaskSpecification instanceSpecification = taskSpecification with
-        {
-            Cardinality = TaskCardinality.Singleton,
-            InputType = effectiveInputType,
-            InputJson = effectiveInputJson,
-            InitialInstanceCount = 1
-        };
+        TaskSpecification instanceSpecification = taskSpecification.CreateRuntimeInstanceSpecification(
+            effectiveInputType,
+            effectiveInputJson);
 
         return RuntimeAddTask(instanceSpecification, currentTask.TaskInstanceId);
     }

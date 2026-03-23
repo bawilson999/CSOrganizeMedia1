@@ -1,6 +1,6 @@
 namespace OrganizeMedia.Framework;
 
-public record TaskSpecification
+public sealed record TaskSpecification
 {
     public TaskSpecification(
         TaskSpecificationId TaskSpecificationId,
@@ -34,17 +34,28 @@ public record TaskSpecification
         this.InitialInstanceCount = InitialInstanceCount;
     }
 
-    public TaskSpecificationId TaskSpecificationId { get; init; }
+    public TaskSpecificationId TaskSpecificationId { get; }
 
-    public TaskType TaskType { get; init; }
+    public TaskType TaskType { get; }
 
-    public InputType? InputType { get; init; }
+    public InputType? InputType { get; }
 
-    public string? InputJson { get; init; }
+    public string? InputJson { get; }
 
-    public TaskCardinality Cardinality { get; init; }
+    public TaskCardinality Cardinality { get; }
 
-    public int InitialInstanceCount { get; internal init; }
+    public int InitialInstanceCount { get; }
+
+    internal TaskSpecification CreateRuntimeInstanceSpecification(InputType? inputType, string? inputJson)
+    {
+        return new TaskSpecification(
+            TaskSpecificationId,
+            TaskType,
+            inputType,
+            inputJson,
+            TaskCardinality.Singleton,
+            1);
+    }
 
     public void Validate()
     {

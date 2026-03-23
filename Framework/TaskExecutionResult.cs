@@ -4,7 +4,7 @@ public sealed record TaskExecutionResult
 {
     private TaskExecutionResult(
         ExecutionOutcome executionOutcome,
-        TaskGraphChanges graphChanges,
+        WorkflowGraphChanges graphChanges,
         ExecutionFailureKind failureKind = ExecutionFailureKind.None,
         ExecutionOutput? output = null,
         ErrorInfo? error = null,
@@ -31,13 +31,13 @@ public sealed record TaskExecutionResult
 
     public ExecutionRecoverability? Recoverability { get; }
 
-    public TaskGraphChanges GraphChanges { get; }
+    public WorkflowGraphChanges GraphChanges { get; }
 
     private static void Validate(
         ExecutionOutcome executionOutcome,
         ExecutionFailureKind failureKind,
         ExecutionRecoverability? recoverability,
-        TaskGraphChanges graphChanges)
+        WorkflowGraphChanges graphChanges)
     {
         switch (executionOutcome)
         {
@@ -101,7 +101,7 @@ public sealed record TaskExecutionResult
                     "Task execution results must use a supported terminal outcome.");
         }
 
-        if (executionOutcome != ExecutionOutcome.Succeeded && graphChanges != TaskGraphChanges.None)
+        if (executionOutcome != ExecutionOutcome.Succeeded && graphChanges != WorkflowGraphChanges.None)
         {
             throw new ArgumentOutOfRangeException(
             nameof(graphChanges),
@@ -129,7 +129,7 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Canceled,
-            graphChanges: TaskGraphChanges.None,
+            graphChanges: WorkflowGraphChanges.None,
             output: output,
             error: error,
             recoverability: recoverability);
@@ -143,14 +143,14 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Failed,
-            graphChanges: TaskGraphChanges.None,
+            graphChanges: WorkflowGraphChanges.None,
             failureKind: failureKind,
             output: output,
             error: error,
             recoverability: recoverability);
     }
 
-    private static TaskGraphChanges CreateGraphChanges(
+    private static WorkflowGraphChanges CreateGraphChanges(
         IReadOnlyCollection<TaskSpecification>? spawnedTasks,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies,
         IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications,
@@ -161,10 +161,10 @@ public sealed record TaskExecutionResult
             IsNullOrEmpty(spawnedTaskSpecifications) &&
             IsNullOrEmpty(addedInstanceDependencies))
         {
-            return TaskGraphChanges.None;
+            return WorkflowGraphChanges.None;
         }
 
-        return new TaskGraphChanges(
+        return new WorkflowGraphChanges(
             SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
             AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>(),
             SpawnedTaskSpecifications: spawnedTaskSpecifications ?? Array.Empty<TaskSpecificationSpawn>(),

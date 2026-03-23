@@ -1,12 +1,12 @@
 namespace OrganizeMedia.Framework;
 
-public sealed record TaskGraphChanges(
+public sealed record WorkflowGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
     IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
     IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies)
 {
-    public static TaskGraphChanges None { get; } = new TaskGraphChanges(
+    public static WorkflowGraphChanges None { get; } = new WorkflowGraphChanges(
         SpawnedTasks: Array.Empty<TaskSpecification>(),
         AddedDependencies: Array.Empty<TaskDependencySpecification>(),
         SpawnedTaskSpecifications: Array.Empty<TaskSpecificationSpawn>(),

@@ -373,7 +373,7 @@ public interface ITaskExecutor
     TaskExecutionResult Execute(IExecutionContext executionContext);
 }
 
-public sealed record TaskGraphChanges(
+public sealed record WorkflowGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies);
 
@@ -384,7 +384,7 @@ public sealed record TaskExecutionResult
     public ExecutionOutput? Output { get; }
     public ErrorInfo? Error { get; }
     public ExecutionRecoverability? Recoverability { get; }
-    public TaskGraphChanges GraphChanges { get; }
+    public WorkflowGraphChanges GraphChanges { get; }
 
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
@@ -711,9 +711,9 @@ These are ordinary `TaskDependencySpecification` values applied to the live grap
 
 For instance-aware materialization, a task may also return `AddedInstanceDependencies`, which resolve dependencies against concrete runtime instances or spawn keys created within the same graph-change payload.
 
-The current implementation groups runtime graph changes under `TaskGraphChanges`, which is the single public graph-change payload exposed on `TaskExecutionResult`.
+The current implementation groups runtime graph changes under `WorkflowGraphChanges`, which is the single public graph-change payload exposed on `TaskExecutionResult`.
 
-All task results expose a non-null `GraphChanges` payload. Results without graph changes use `TaskGraphChanges.None`.
+All task results expose a non-null `GraphChanges` payload. Results without graph changes use `WorkflowGraphChanges.None`.
 
 ## Persistence Direction
 
@@ -762,7 +762,7 @@ src/
     ITaskExecutor.cs
     IWorkflowObserver.cs
     TaskExecutionResult.cs
-    TaskGraphChanges.cs
+    WorkflowGraphChanges.cs
     ExecutionOutput.cs
     ErrorInfo.cs
     ExecutionPhase.cs

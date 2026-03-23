@@ -9,7 +9,7 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Succeeded();
 
-        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Same(WorkflowGraphChanges.None, result.GraphChanges);
         Assert.Empty(result.GraphChanges.SpawnedTasks);
         Assert.Empty(result.GraphChanges.AddedDependencies);
     }
@@ -21,7 +21,7 @@ public class WorkflowValidationTests
             spawnedTasks: Array.Empty<TaskSpecification>(),
             addedDependencies: Array.Empty<TaskDependencySpecification>());
 
-        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Same(WorkflowGraphChanges.None, result.GraphChanges);
         Assert.Empty(result.GraphChanges.SpawnedTasks);
         Assert.Empty(result.GraphChanges.AddedDependencies);
     }
@@ -51,7 +51,7 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Canceled();
 
-        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Same(WorkflowGraphChanges.None, result.GraphChanges);
         Assert.Empty(result.GraphChanges.SpawnedTasks);
         Assert.Empty(result.GraphChanges.AddedDependencies);
     }
@@ -61,7 +61,7 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Failed(ExecutionFailureKind.Transient);
 
-        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Same(WorkflowGraphChanges.None, result.GraphChanges);
         Assert.Empty(result.GraphChanges.SpawnedTasks);
         Assert.Empty(result.GraphChanges.AddedDependencies);
     }
@@ -130,6 +130,38 @@ public class WorkflowValidationTests
 
         Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskSpecificationId == new TaskSpecificationId("A"));
         Assert.DoesNotContain(workflow.Status.TaskStatuses.Values, status => status.TaskSpecificationId == new TaskSpecificationId("B"));
+    }
+
+    [Fact]
+    public void WorkflowSpecification_DefensivelyCopiesInputCollections()
+    {
+        List<TaskSpecification> tasks =
+        [
+            new TaskSpecification(
+                TaskSpecificationId: new TaskSpecificationId("A"),
+                TaskType: new TaskType("DiscoverFiles"))
+        ];
+
+        List<TaskDependencySpecification> dependencies =
+        [
+            new TaskDependencySpecification(
+                PrerequisiteTaskSpecificationId: new TaskSpecificationId("A"),
+                DependentTaskSpecificationId: new TaskSpecificationId("B"))
+        ];
+
+        WorkflowSpecification specification = new WorkflowSpecification(
+            WorkflowSpecificationId: new WorkflowSpecificationId("W0"),
+            Tasks: tasks,
+            Dependencies: dependencies);
+
+        tasks.Add(new TaskSpecification(
+            TaskSpecificationId: new TaskSpecificationId("C"),
+            TaskType: new TaskType("GenerateReport")));
+
+        dependencies.Clear();
+
+        Assert.Single(specification.Tasks);
+        Assert.Single(specification.Dependencies);
     }
 
     [Fact]

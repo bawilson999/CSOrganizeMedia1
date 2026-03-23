@@ -586,7 +586,7 @@ return TaskExecutionResult.Succeeded(
 
 ### Inspecting Graph Changes
 
-`TaskExecutionResult.GraphChanges` is always present. Results without runtime graph changes use `TaskGraphChanges.None`.
+`TaskExecutionResult.GraphChanges` is always present. Results without runtime graph changes use `WorkflowGraphChanges.None`.
 
 ```csharp
 TaskExecutionResult result = executor.Execute(executionContext);

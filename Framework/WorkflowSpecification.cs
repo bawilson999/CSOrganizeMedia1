@@ -1,26 +1,35 @@
 namespace OrganizeMedia.Framework;
 
-public record WorkflowSpecification(
-    WorkflowSpecificationId WorkflowSpecificationId,
-    IReadOnlyCollection<TaskSpecification> Tasks,
-    IReadOnlyCollection<TaskDependencySpecification> Dependencies,
-    int? MaxConcurrency = null)
+public sealed record WorkflowSpecification
 {
+    public WorkflowSpecification(
+        WorkflowSpecificationId WorkflowSpecificationId,
+        IReadOnlyCollection<TaskSpecification> Tasks,
+        IReadOnlyCollection<TaskDependencySpecification> Dependencies,
+        int? MaxConcurrency = null)
+    {
+        ArgumentNullException.ThrowIfNull(Tasks);
+        ArgumentNullException.ThrowIfNull(Dependencies);
+
+        this.WorkflowSpecificationId = WorkflowSpecificationId;
+        this.Tasks = Array.AsReadOnly(Tasks.ToArray());
+        this.Dependencies = Array.AsReadOnly(Dependencies.ToArray());
+        this.MaxConcurrency = MaxConcurrency;
+    }
+
+    public WorkflowSpecificationId WorkflowSpecificationId { get; }
+
+    public IReadOnlyCollection<TaskSpecification> Tasks { get; }
+
+    public IReadOnlyCollection<TaskDependencySpecification> Dependencies { get; }
+
+    public int? MaxConcurrency { get; }
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(WorkflowSpecificationId.Value))
         {
             throw new InvalidOperationException("Workflow specifications must have a non-empty WorkflowSpecificationId.");
-        }
-
-        if (Tasks is null)
-        {
-            throw new InvalidOperationException($"Workflow specification {WorkflowSpecificationId} must provide a task collection.");
-        }
-
-        if (Dependencies is null)
-        {
-            throw new InvalidOperationException($"Workflow specification {WorkflowSpecificationId} must provide a dependency collection.");
         }
 
         if (MaxConcurrency is not null && MaxConcurrency <= 0)
