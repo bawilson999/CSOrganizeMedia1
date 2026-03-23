@@ -193,4 +193,21 @@ public class Task
             failureKind: failureKind,
             recoverability: recoverability);
     }
+
+    internal void ResetToNotStarted()
+    {
+        if (ExecutionState.ExecutionPhase == ExecutionPhase.Running ||
+            ExecutionState.ExecutionPhase == ExecutionPhase.Finished)
+        {
+            throw new InvalidOperationException(
+                $"Task {TaskId} cannot be reset after execution has started.");
+        }
+
+        ExecutionState.ExecutionPhase = ExecutionPhase.NotStarted;
+        ExecutionState.ExecutionOutcome = ExecutionOutcome.Pending;
+        ExecutionState.FailureKind = ExecutionFailureKind.None;
+        ExecutionState.CompletedSteps = 0;
+        ExecutionState.Error = null;
+        ExecutionState.Output = null;
+    }
 }

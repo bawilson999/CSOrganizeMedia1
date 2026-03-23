@@ -41,6 +41,13 @@ public class WorkflowOrchestrator
                 }
 
                 currentTask = readyQueue.Dequeue();
+
+                if (currentTask.Status.ExecutionPhase != ExecutionPhase.Queued)
+                {
+                    currentTask = null;
+                    continue;
+                }
+
                 currentTask.MarkRunning();
 
                 IExecutionContext executionContext = new ExecutionContext(workflow, currentTask);

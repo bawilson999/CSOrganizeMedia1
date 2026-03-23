@@ -254,13 +254,25 @@ public class Workflow
                 $"Workflow {WorkflowId} references missing dependent task {dependency.DependentTaskId}.");
         }
 
-        if (dependentTask.Status.ExecutionPhase != ExecutionPhase.NotStarted)
+        if (!HasNotStartedExecution(dependentTask))
         {
             throw new InvalidOperationException(
-                $"Workflow {WorkflowId} can only add dependencies to not-started tasks. Task {dependentTask.TaskId} is currently {dependentTask.Status.ExecutionPhase}.");
+                $"Workflow {WorkflowId} can only add dependencies to tasks that have not started execution. Task {dependentTask.TaskId} is currently {dependentTask.Status.ExecutionPhase}.");
+        }
+
+        if (dependentTask.Status.ExecutionPhase != ExecutionPhase.NotStarted)
+        {
+            dependentTask.ResetToNotStarted();
         }
 
         AddAdjacency(prerequisiteTask, dependentTask);
+    }
+
+    private static bool HasNotStartedExecution(Task task)
+    {
+        return task.Status.ExecutionPhase == ExecutionPhase.NotStarted ||
+               task.Status.ExecutionPhase == ExecutionPhase.ReadyToRun ||
+               task.Status.ExecutionPhase == ExecutionPhase.Queued;
     }
 
     public void RuntimeAddFanIn(TaskFanInSpecification fanInSpecification, IReadOnlyCollection<TaskId> spawnedTaskIds)

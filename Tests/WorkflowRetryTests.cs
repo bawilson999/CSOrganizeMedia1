@@ -1,4 +1,4 @@
-﻿namespace OrganizeMedia.Tests;
+namespace OrganizeMedia.Tests;
 
 using OrganizeMedia.Framework;
 
@@ -7,7 +7,7 @@ public class WorkflowRetryTests
     [Fact]
     public void RunToCompletion_RerunsRetryableFailedTaskBeforeDependents()
     {
-        Workflow workflow = CreateWorkflow(
+        Workflow workflow = WorkflowTestSupport.CreateWorkflow(
             workflowId: "RetryFailure",
             taskIds: ["A", "B"],
             dependencies:
@@ -51,7 +51,7 @@ public class WorkflowRetryTests
     [Fact]
     public void RunToCompletion_RerunsRetryableCanceledTask()
     {
-        Workflow workflow = CreateWorkflow(
+        Workflow workflow = WorkflowTestSupport.CreateWorkflow(
             workflowId: "RetryCanceled",
             taskIds: ["A"],
             dependencies: Array.Empty<TaskDependencySpecification>());
@@ -78,47 +78,5 @@ public class WorkflowRetryTests
 
         Assert.Equal(ExecutionOutcome.Succeeded, workflow.Status.ExecutionOutcome);
         Assert.Equal(["A", "A"], taskExecutor.ExecutedTaskIds);
-    }
-
-    private static Workflow CreateWorkflow(
-        string workflowId,
-        IReadOnlyCollection<string> taskIds,
-        IReadOnlyCollection<TaskDependencySpecification> dependencies)
-    {
-        WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId(workflowId),
-            Tasks: taskIds
-                .Select(taskId => new TaskSpecification(new TaskId(taskId), taskId))
-                .ToArray(),
-            Dependencies: dependencies.ToArray());
-
-        return Workflow.FromSpecification(specification);
-    }
-
-    private sealed class RecordingTaskExecutor : ITaskExecutor
-    {
-        private readonly Dictionary<string, Queue<TaskExecutionResult>> _resultsByTaskId;
-
-        public RecordingTaskExecutor(Dictionary<string, IReadOnlyList<TaskExecutionResult>> resultsByTaskId)
-        {
-            _resultsByTaskId = resultsByTaskId.ToDictionary(
-                pair => pair.Key,
-                pair => new Queue<TaskExecutionResult>(pair.Value));
-        }
-
-        public List<string> ExecutedTaskIds { get; } = new List<string>();
-
-        public TaskExecutionResult Execute(IExecutionContext executionContext)
-        {
-            string taskId = executionContext.TaskId.Value;
-            ExecutedTaskIds.Add(taskId);
-
-            if (!_resultsByTaskId.TryGetValue(taskId, out Queue<TaskExecutionResult> results) || results.Count == 0)
-            {
-                throw new InvalidOperationException($"No configured execution result for task {taskId}.");
-            }
-
-            return results.Dequeue();
-        }
     }
 }
