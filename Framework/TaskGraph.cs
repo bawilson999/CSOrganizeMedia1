@@ -18,7 +18,7 @@ internal sealed class TaskGraph
 
         if (_adjacencyList.ContainsKey(task))
         {
-            throw new InvalidOperationException($"Task graph already contains task {task.TaskId}.");
+            throw new InvalidOperationException($"Task graph already contains task {task.TaskInstanceId}.");
         }
 
         _adjacencyList.Add(task, new List<Task>());
@@ -29,7 +29,7 @@ internal sealed class TaskGraph
     {
         if (task == adjacentTask)
         {
-            throw new InvalidOperationException($"Task graph cannot add a self-dependency for task {task.TaskId}.");
+            throw new InvalidOperationException($"Task graph cannot add a self-dependency for task {task.TaskInstanceId}.");
         }
 
         if (!_adjacencyList.ContainsKey(task))
@@ -41,13 +41,13 @@ internal sealed class TaskGraph
         if (_adjacencyList[task].Contains(adjacentTask))
         {
             throw new InvalidOperationException(
-                $"Task graph already contains dependency {task.TaskId} -> {adjacentTask.TaskId}.");
+                $"Task graph already contains dependency {task.TaskInstanceId} -> {adjacentTask.TaskInstanceId}.");
         }
 
         if (HasPath(adjacentTask, task))
         {
             throw new InvalidOperationException(
-                $"Task graph cannot add dependency {task.TaskId} -> {adjacentTask.TaskId} because it would introduce a cycle.");
+                $"Task graph cannot add dependency {task.TaskInstanceId} -> {adjacentTask.TaskInstanceId} because it would introduce a cycle.");
         }
 
         _adjacencyList[task].Add(adjacentTask);

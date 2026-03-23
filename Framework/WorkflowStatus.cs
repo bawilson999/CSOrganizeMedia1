@@ -6,7 +6,7 @@ public record WorkflowStatus(
     ExecutionOutcome ExecutionOutcome,
     ExecutionFailureKind FailureKind,
     ExecutionRecoverability Recoverability,
-    Dictionary<TaskId, TaskStatus> TaskStatuses,
+    Dictionary<TaskInstanceId, TaskStatus> TaskStatuses,
     ErrorInfo? Error = null,
     ExecutionOutput? Output = null,
     DateTime? Timestamp = null,

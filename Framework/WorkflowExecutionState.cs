@@ -2,22 +2,22 @@ namespace OrganizeMedia.Framework;
 
 internal sealed class WorkflowExecutionState : ExecutionStateCore
 {
-    private readonly Dictionary<TaskId, TaskExecutionState> _taskExecutionStates;
+    private readonly Dictionary<TaskInstanceId, TaskExecutionState> _taskExecutionStates;
 
     internal WorkflowExecutionState(WorkflowId workflowId)
         : base(workflowId)
     {
-        _taskExecutionStates = new Dictionary<TaskId, TaskExecutionState>();
+        _taskExecutionStates = new Dictionary<TaskInstanceId, TaskExecutionState>();
     }
 
     internal void AddTaskExecutionState(TaskExecutionState taskExecutionState)
     {
-        _taskExecutionStates.Add(taskExecutionState.TaskId, taskExecutionState);
+        _taskExecutionStates.Add(taskExecutionState.TaskInstanceId, taskExecutionState);
     }
 
-    internal void TryGetTaskExecutionState(TaskId taskId, out TaskExecutionState? taskExecutionState)
+    internal void TryGetTaskExecutionState(TaskInstanceId taskInstanceId, out TaskExecutionState? taskExecutionState)
     {
-        _taskExecutionStates.TryGetValue(taskId, out taskExecutionState);
+        _taskExecutionStates.TryGetValue(taskInstanceId, out taskExecutionState);
     }
 
     internal WorkflowStatus ToStatus()

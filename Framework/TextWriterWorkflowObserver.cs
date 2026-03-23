@@ -16,7 +16,7 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
         ArgumentNullException.ThrowIfNull(transitionEvent);
         _writer.WriteLine(TaskStatusFormatter.Format(
             transitionEvent.WorkflowId,
-            transitionEvent.TaskId,
+            transitionEvent.TaskInstanceId,
             transitionEvent.CurrentStatus));
     }
 
@@ -31,13 +31,13 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
     public void OnTaskAdded(TaskAddedEvent taskAddedEvent)
     {
         ArgumentNullException.ThrowIfNull(taskAddedEvent);
-        _writer.WriteLine($"/{taskAddedEvent.WorkflowId}/{taskAddedEvent.TaskId} added by runtime graph change");
+        _writer.WriteLine($"/{taskAddedEvent.WorkflowId}/{taskAddedEvent.TaskInstanceId} added by runtime graph change");
     }
 
     public void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent)
     {
         ArgumentNullException.ThrowIfNull(dependencyAddedEvent);
         _writer.WriteLine(
-            $"/{dependencyAddedEvent.WorkflowId} dependency added: {dependencyAddedEvent.PrerequisiteTaskId} -> {dependencyAddedEvent.DependentTaskId}");
+            $"/{dependencyAddedEvent.WorkflowId} dependency added: {dependencyAddedEvent.PrerequisiteTaskInstanceId} -> {dependencyAddedEvent.DependentTaskInstanceId}");
     }
 }

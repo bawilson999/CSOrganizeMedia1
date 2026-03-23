@@ -5,7 +5,8 @@ public record TaskSpecification(
     TaskType TaskType,
     InputType? InputType = null,
     string? InputJson = null,
-    TaskId? SpawnedByTaskId = null)
+    TaskId? SpawnedByTaskId = null,
+    int InitialInstanceCount = 1)
 {
     public void Validate()
     {
@@ -24,6 +25,12 @@ public record TaskSpecification(
         {
             throw new InvalidOperationException(
                 $"Task specification {TaskId} must provide InputType when InputJson is present.");
+        }
+
+        if (InitialInstanceCount < 0)
+        {
+            throw new InvalidOperationException(
+                $"Task specification {TaskId} must use a non-negative InitialInstanceCount.");
         }
     }
 }

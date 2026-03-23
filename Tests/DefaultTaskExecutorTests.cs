@@ -57,19 +57,22 @@ public class DefaultTaskExecutorTests
         {
             WorkflowId = new WorkflowId("W0");
             TaskId = taskSpecification.TaskId;
+            TaskInstanceId = new TaskInstanceId(taskSpecification.TaskId, 1);
             TaskSpecification = taskSpecification;
-            DependencyStatuses = new Dictionary<TaskId, TaskStatus>();
-            DependencyOutputs = new Dictionary<TaskId, ExecutionOutput?>();
+            DependencyStatuses = new Dictionary<TaskInstanceId, TaskStatus>();
+            DependencyOutputs = new Dictionary<TaskInstanceId, ExecutionOutput?>();
         }
 
         public WorkflowId WorkflowId { get; }
 
         public TaskId TaskId { get; }
 
+        public TaskInstanceId TaskInstanceId { get; }
+
         public TaskSpecification TaskSpecification { get; }
 
-        public IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
+        public IReadOnlyDictionary<TaskInstanceId, TaskStatus> DependencyStatuses { get; }
 
-        public IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
+        public IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?> DependencyOutputs { get; }
     }
 }

@@ -4,8 +4,8 @@ public class Task
 {
     private IWorkflowObserver _observer;
 
-    internal Task(WorkflowId workflowId, TaskSpecification specification)
-        : this(workflowId, specification, new TaskExecutionState(workflowId, specification.TaskId))
+    internal Task(WorkflowId workflowId, TaskSpecification specification, TaskInstanceId taskInstanceId)
+        : this(workflowId, specification, new TaskExecutionState(workflowId, specification.TaskId, taskInstanceId))
     {
     }
 
@@ -15,6 +15,7 @@ public class Task
 
         WorkflowId = workflowId;
         TaskId = specification.TaskId;
+        TaskInstanceId = executionState.TaskInstanceId;
         Specification = specification;
         ExecutionState = executionState;
         _observer = NullWorkflowObserver.Instance;
@@ -24,6 +25,8 @@ public class Task
 
     public TaskId TaskId { get; init; }
 
+    public TaskInstanceId TaskInstanceId { get; init; }
+
     public TaskSpecification Specification { get; init; }
 
     internal TaskExecutionState ExecutionState { get; init; }
@@ -32,7 +35,7 @@ public class Task
 
     public override string ToString()
     {
-        return $"/{WorkflowId}/{TaskId}";
+        return $"/{WorkflowId}/{TaskInstanceId}";
     }
 
     internal bool IsCompleteForWorkflowSuccess()
@@ -219,6 +222,7 @@ public class Task
             _observer.OnTaskTransition(new TaskTransitionEvent(
                 WorkflowId: WorkflowId,
                 TaskId: TaskId,
+                TaskInstanceId: TaskInstanceId,
                 PreviousStatus: previousStatus,
                 CurrentStatus: currentStatus,
                 Timestamp: currentStatus.Timestamp ?? DateTime.UtcNow));

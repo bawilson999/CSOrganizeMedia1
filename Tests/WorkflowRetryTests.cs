@@ -42,10 +42,10 @@ public class WorkflowRetryTests
         Assert.Equal(["A", "A", "B"], taskExecutor.ExecutedTaskIds);
         Assert.Equal(
             ExecutionOutcome.Succeeded,
-            workflow.Status.TaskStatuses[new TaskId("A")].ExecutionOutcome);
+            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskId("A"), 1)].ExecutionOutcome);
         Assert.Equal(
             ExecutionOutcome.Succeeded,
-            workflow.Status.TaskStatuses[new TaskId("B")].ExecutionOutcome);
+            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskId("B"), 1)].ExecutionOutcome);
     }
 
     [Fact]

@@ -139,13 +139,13 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 
     private TaskExecutionResult RecordAggregatorInputsAndReturnResult(IExecutionContext executionContext)
     {
-        foreach (TaskId dependencyTaskId in executionContext.DependencyStatuses.Keys.OrderBy(taskId => taskId.Value))
+        foreach (TaskInstanceId dependencyTaskId in executionContext.DependencyStatuses.Keys.OrderBy(taskId => taskId.ToString()))
         {
-            AggregatorDependencyTaskIds.Add(dependencyTaskId.Value);
+            AggregatorDependencyTaskIds.Add(dependencyTaskId.ToString());
         }
 
         foreach (ExecutionOutput? output in executionContext.DependencyOutputs
-            .OrderBy(pair => pair.Key.Value)
+            .OrderBy(pair => pair.Key.ToString())
             .Select(pair => pair.Value))
         {
             Assert.NotNull(output);

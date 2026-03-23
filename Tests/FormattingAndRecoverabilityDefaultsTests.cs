@@ -9,16 +9,17 @@ public class FormattingAndRecoverabilityDefaultsTests
     {
         string formatted = TaskStatusFormatter.Format(
             workflowId: new WorkflowId("W0"),
-            taskId: new TaskId("A"),
+            taskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
             status: new TaskStatus(
                 WorkflowId: new WorkflowId("W0"),
                 TaskId: new TaskId("A"),
+                TaskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
                 ExecutionPhase: ExecutionPhase.Running,
                 ExecutionOutcome: ExecutionOutcome.Pending,
                 FailureKind: ExecutionFailureKind.None,
                 Recoverability: ExecutionRecoverability.AwaitingOutcome));
 
-        Assert.Equal("/W0/A Running, Pending, None, AwaitingOutcome", formatted);
+        Assert.Equal("/W0/A/1 Running, Pending, None, AwaitingOutcome", formatted);
     }
 
     [Fact]
@@ -32,7 +33,7 @@ public class FormattingAndRecoverabilityDefaultsTests
                 ExecutionOutcome: ExecutionOutcome.Pending,
                 FailureKind: ExecutionFailureKind.None,
                 Recoverability: ExecutionRecoverability.AwaitingOutcome,
-                TaskStatuses: new Dictionary<TaskId, TaskStatus>()));
+                TaskStatuses: new Dictionary<TaskInstanceId, TaskStatus>()));
 
         Assert.Equal("/W0 ReadyToRun, Pending, None, AwaitingOutcome", formatted);
     }

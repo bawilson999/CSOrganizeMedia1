@@ -4,7 +4,10 @@ public class Workflow
 {
     private readonly TaskGraph _taskGraph;
     private readonly WorkflowExecutionState _executionState;
-    private readonly Dictionary<TaskId, Task> _tasksById;
+    private readonly Dictionary<TaskInstanceId, Task> _tasksByInstanceId;
+    private readonly Dictionary<TaskId, List<Task>> _tasksByTemplateId;
+    private readonly Dictionary<TaskId, int> _nextInstanceNumberByTaskId;
+    private readonly Dictionary<TaskId, TaskSpecification> _taskTemplatesById;
     private IWorkflowObserver _observer = NullWorkflowObserver.Instance;
 
     internal Workflow(WorkflowId workflowId, int? maxConcurrency)
@@ -13,7 +16,10 @@ public class Workflow
         MaxConcurrency = maxConcurrency;
         _taskGraph = new TaskGraph();
         _executionState = new WorkflowExecutionState(workflowId);
-        _tasksById = new Dictionary<TaskId, Task>();
+        _tasksByInstanceId = new Dictionary<TaskInstanceId, Task>();
+        _tasksByTemplateId = new Dictionary<TaskId, List<Task>>();
+        _nextInstanceNumberByTaskId = new Dictionary<TaskId, int>();
+        _taskTemplatesById = new Dictionary<TaskId, TaskSpecification>();
     }
 
     public WorkflowId WorkflowId { get; init; }
@@ -29,15 +35,22 @@ public class Workflow
 
         foreach (TaskSpecification taskSpecification in specification.Tasks)
         {
-            Task task = new Task(specification.WorkflowId, taskSpecification);
-            workflow.AddTask(task);
+            workflow.RegisterTaskTemplate(taskSpecification);
+
+            for (int instanceIndex = 0; instanceIndex < taskSpecification.InitialInstanceCount; instanceIndex++)
+            {
+                Task task = workflow.CreateTask(taskSpecification);
+                workflow.AddTask(task);
+            }
         }
 
         foreach (TaskDependencySpecification dependency in specification.Dependencies)
         {
-            workflow.AddAdjacency(
-                workflow._tasksById[dependency.PrerequisiteTaskId],
-                workflow._tasksById[dependency.DependentTaskId]);
+            if (workflow.TryGetSingleTask(dependency.PrerequisiteTaskId, out Task? prerequisiteTask) &&
+                workflow.TryGetSingleTask(dependency.DependentTaskId, out Task? dependentTask))
+            {
+                workflow.AddAdjacency(prerequisiteTask!, dependentTask!);
+            }
         }
 
         return workflow;
@@ -179,15 +192,73 @@ public class Workflow
     {
         ArgumentNullException.ThrowIfNull(task);
 
-        if (_tasksById.ContainsKey(task.TaskId))
+        if (_tasksByInstanceId.ContainsKey(task.TaskInstanceId))
         {
-            throw new InvalidOperationException($"Workflow {WorkflowId} already contains task {task.TaskId}.");
+            throw new InvalidOperationException($"Workflow {WorkflowId} already contains task instance {task.TaskInstanceId}.");
         }
 
         task.SetObserver(_observer);
         _taskGraph.AddTask(task);
-        _tasksById.Add(task.TaskId, task);
+        _tasksByInstanceId.Add(task.TaskInstanceId, task);
+        if (!_tasksByTemplateId.TryGetValue(task.TaskId, out List<Task>? taskInstances))
+        {
+            taskInstances = new List<Task>();
+            _tasksByTemplateId.Add(task.TaskId, taskInstances);
+        }
+
+        taskInstances.Add(task);
         _executionState.AddTaskExecutionState(task.ExecutionState);
+    }
+
+    private void RegisterTaskTemplate(TaskSpecification taskSpecification)
+    {
+        _taskTemplatesById.Add(taskSpecification.TaskId, taskSpecification);
+    }
+
+    private Task CreateTask(TaskSpecification taskSpecification)
+    {
+        TaskId taskId = taskSpecification.TaskId;
+        int nextInstanceNumber = _nextInstanceNumberByTaskId.TryGetValue(taskId, out int currentInstanceNumber)
+            ? currentInstanceNumber + 1
+            : 1;
+
+        _nextInstanceNumberByTaskId[taskId] = nextInstanceNumber;
+        return new Task(WorkflowId, taskSpecification, new TaskInstanceId(taskId, nextInstanceNumber));
+    }
+
+    private Task GetRequiredSingleTask(TaskId taskId)
+    {
+        if (!_tasksByTemplateId.TryGetValue(taskId, out List<Task>? taskInstances) || taskInstances.Count == 0)
+        {
+            throw new InvalidOperationException($"Workflow {WorkflowId} references missing task template {taskId}.");
+        }
+
+        if (taskInstances.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Workflow {WorkflowId} cannot resolve template task {taskId} to a single runtime instance because {taskInstances.Count} instances exist.");
+        }
+
+        return taskInstances[0];
+    }
+
+    private bool TryGetSingleTask(TaskId taskId, out Task? task)
+    {
+        task = null;
+
+        if (!_tasksByTemplateId.TryGetValue(taskId, out List<Task>? taskInstances) || taskInstances.Count == 0)
+        {
+            return false;
+        }
+
+        if (taskInstances.Count != 1)
+        {
+            throw new InvalidOperationException(
+                $"Workflow {WorkflowId} cannot resolve template task {taskId} to a single runtime instance because {taskInstances.Count} instances exist.");
+        }
+
+        task = taskInstances[0];
+        return true;
     }
 
     internal void AddAdjacency(Task task, Task adjacentTask)
@@ -203,6 +274,9 @@ public class Workflow
         TaskGraphChanges graphChanges = executionResult.GraphChanges;
         IReadOnlyCollection<TaskSpecification> spawnedTasks = graphChanges.SpawnedTasks;
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = graphChanges.AddedDependencies;
+        IReadOnlyCollection<TaskTemplateSpawn> spawnedTaskTemplates = graphChanges.SpawnedTaskTemplates;
+        IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies = graphChanges.AddedInstanceDependencies;
+        Dictionary<string, Task> spawnedTasksByKey = new Dictionary<string, Task>(StringComparer.Ordinal);
 
         foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
         {
@@ -219,9 +293,32 @@ public class Workflow
             RuntimeAddTask(normalizedSpecification);
         }
 
+        foreach (TaskTemplateSpawn taskTemplateSpawn in spawnedTaskTemplates)
+        {
+            if (string.IsNullOrWhiteSpace(taskTemplateSpawn.SpawnKey))
+            {
+                throw new InvalidOperationException("Spawned task templates must provide a non-empty SpawnKey.");
+            }
+
+            Task spawnedTask = RuntimeSpawnTaskFromTemplate(currentTask, taskTemplateSpawn);
+
+            if (!spawnedTasksByKey.TryAdd(taskTemplateSpawn.SpawnKey, spawnedTask))
+            {
+                throw new InvalidOperationException(
+                    $"Workflow {WorkflowId} received duplicate spawned task key {taskTemplateSpawn.SpawnKey} in one graph change.");
+            }
+        }
+
         foreach (TaskDependencySpecification dependency in addedDependencies)
         {
             RuntimeAddDependency(dependency);
+        }
+
+        foreach (TaskInstanceDependency dependency in addedInstanceDependencies)
+        {
+            Task prerequisiteTask = ResolveTaskNodeReference(dependency.Prerequisite, spawnedTasksByKey);
+            Task dependentTask = ResolveTaskNodeReference(dependency.Dependent, spawnedTasksByKey);
+            RuntimeAddDependency(prerequisiteTask, dependentTask);
         }
     }
 
@@ -230,30 +327,51 @@ public class Workflow
         ArgumentNullException.ThrowIfNull(taskSpecification);
         taskSpecification.Validate();
 
-        Task task = new Task(WorkflowId, taskSpecification);
+        Task task = CreateTask(taskSpecification);
         AddTask(task);
         NotifyTaskAdded(task);
         return task;
     }
 
-    internal void RuntimeAddDependency(TaskDependencySpecification dependency)
+    private Task RuntimeSpawnTaskFromTemplate(Task currentTask, TaskTemplateSpawn taskTemplateSpawn)
     {
-        if (!_tasksById.TryGetValue(dependency.PrerequisiteTaskId, out Task? prerequisiteTask))
+        if (!_taskTemplatesById.TryGetValue(taskTemplateSpawn.TemplateTaskId, out TaskSpecification? taskTemplate))
         {
             throw new InvalidOperationException(
-                $"Workflow {WorkflowId} references missing prerequisite task {dependency.PrerequisiteTaskId}.");
+                $"Workflow {WorkflowId} references missing task template {taskTemplateSpawn.TemplateTaskId}.");
         }
 
-        if (!_tasksById.TryGetValue(dependency.DependentTaskId, out Task? dependentTask))
+        InputType? effectiveInputType = taskTemplateSpawn.InputType ?? taskTemplate.InputType;
+        string? effectiveInputJson = taskTemplateSpawn.InputJson ?? taskTemplate.InputJson;
+
+        TaskSpecification instanceSpecification = taskTemplate with
         {
-            throw new InvalidOperationException(
-                $"Workflow {WorkflowId} references missing dependent task {dependency.DependentTaskId}.");
-        }
+            InputType = effectiveInputType,
+            InputJson = effectiveInputJson,
+            SpawnedByTaskId = currentTask.TaskId,
+            InitialInstanceCount = 1
+        };
+
+        return RuntimeAddTask(instanceSpecification);
+    }
+
+    internal void RuntimeAddDependency(TaskDependencySpecification dependency)
+    {
+        Task prerequisiteTask = GetRequiredSingleTask(dependency.PrerequisiteTaskId);
+        Task dependentTask = GetRequiredSingleTask(dependency.DependentTaskId);
+
+        RuntimeAddDependency(prerequisiteTask, dependentTask);
+    }
+
+    private void RuntimeAddDependency(Task prerequisiteTask, Task dependentTask)
+    {
+        ArgumentNullException.ThrowIfNull(prerequisiteTask);
+        ArgumentNullException.ThrowIfNull(dependentTask);
 
         if (!ExecutionTransitionSupport.HasNotStartedExecution(dependentTask.Status.ExecutionPhase))
         {
             throw new InvalidOperationException(
-                $"Workflow {WorkflowId} can only add dependencies to tasks that have not started execution. Task {dependentTask.TaskId} is currently {dependentTask.Status.ExecutionPhase}.");
+                $"Workflow {WorkflowId} can only add dependencies to tasks that have not started execution. Task {dependentTask.TaskInstanceId} is currently {dependentTask.Status.ExecutionPhase}.");
         }
 
         if (dependentTask.Status.ExecutionPhase != ExecutionPhase.NotStarted)
@@ -262,7 +380,36 @@ public class Workflow
         }
 
         AddAdjacency(prerequisiteTask, dependentTask);
-        NotifyDependencyAdded(dependency);
+        NotifyDependencyAdded(prerequisiteTask, dependentTask);
+    }
+
+    private Task ResolveTaskNodeReference(TaskNodeReference reference, IReadOnlyDictionary<string, Task> spawnedTasksByKey)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+
+        if (reference.TaskInstanceId is not null)
+        {
+            if (!_tasksByInstanceId.TryGetValue(reference.TaskInstanceId.Value, out Task? task))
+            {
+                throw new InvalidOperationException(
+                    $"Workflow {WorkflowId} references missing task instance {reference.TaskInstanceId.Value}.");
+            }
+
+            return task;
+        }
+
+        if (reference.TaskId is not null)
+        {
+            return GetRequiredSingleTask(reference.TaskId.Value);
+        }
+
+        if (reference.SpawnKey is not null && spawnedTasksByKey.TryGetValue(reference.SpawnKey, out Task? spawnedTask))
+        {
+            return spawnedTask;
+        }
+
+        throw new InvalidOperationException(
+            $"Workflow {WorkflowId} references missing spawned task key {reference.SpawnKey}.");
     }
 
     internal IReadOnlyCollection<Task> GetTasks()
@@ -270,9 +417,9 @@ public class Workflow
         return _taskGraph.GetTasks();
     }
 
-    internal bool TryGetTask(TaskId taskId, out Task? task)
+    internal bool TryGetTask(TaskInstanceId taskInstanceId, out Task? task)
     {
-        return _tasksById.TryGetValue(taskId, out task);
+        return _tasksByInstanceId.TryGetValue(taskInstanceId, out task);
     }
 
     internal IReadOnlyCollection<Task> GetDependencies(Task task)
@@ -295,7 +442,7 @@ public class Workflow
     {
         _observer = observer ?? NullWorkflowObserver.Instance;
 
-        foreach (Task task in _tasksById.Values)
+        foreach (Task task in _tasksByInstanceId.Values)
         {
             task.SetObserver(_observer);
         }
@@ -325,6 +472,7 @@ public class Workflow
             _observer.OnTaskAdded(new TaskAddedEvent(
                 WorkflowId: WorkflowId,
                 TaskId: task.TaskId,
+                TaskInstanceId: task.TaskInstanceId,
                 Timestamp: task.Status.Timestamp ?? DateTime.UtcNow));
         }
         catch
@@ -332,14 +480,14 @@ public class Workflow
         }
     }
 
-    private void NotifyDependencyAdded(TaskDependencySpecification dependency)
+    private void NotifyDependencyAdded(Task prerequisiteTask, Task dependentTask)
     {
         try
         {
             _observer.OnDependencyAdded(new DependencyAddedEvent(
                 WorkflowId: WorkflowId,
-                PrerequisiteTaskId: dependency.PrerequisiteTaskId,
-                DependentTaskId: dependency.DependentTaskId,
+                PrerequisiteTaskInstanceId: prerequisiteTask.TaskInstanceId,
+                DependentTaskInstanceId: dependentTask.TaskInstanceId,
                 Timestamp: DateTime.UtcNow));
         }
         catch

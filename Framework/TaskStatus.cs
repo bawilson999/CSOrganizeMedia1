@@ -3,6 +3,7 @@ namespace OrganizeMedia.Framework;
 public record TaskStatus(
     WorkflowId WorkflowId,
     TaskId TaskId,
+    TaskInstanceId TaskInstanceId,
     ExecutionPhase ExecutionPhase = ExecutionPhase.NotStarted,
     ExecutionOutcome ExecutionOutcome = ExecutionOutcome.Pending,
     ExecutionFailureKind FailureKind = ExecutionFailureKind.None,

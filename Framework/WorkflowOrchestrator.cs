@@ -138,7 +138,7 @@ internal sealed class WorkflowOrchestrator
 
             default:
                 throw new InvalidOperationException(
-                    $"Task executor returned unsupported outcome {executionResult.ExecutionOutcome} for task {task.TaskId}.");
+                    $"Task executor returned unsupported outcome {executionResult.ExecutionOutcome} for task {task.TaskInstanceId}.");
         }
     }
 }

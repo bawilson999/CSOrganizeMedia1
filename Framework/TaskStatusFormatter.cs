@@ -2,9 +2,9 @@ namespace OrganizeMedia.Framework;
 
 public static class TaskStatusFormatter
 {
-    public static string Format(WorkflowId workflowId, TaskId taskId, TaskStatus status)
+    public static string Format(WorkflowId workflowId, TaskInstanceId taskInstanceId, TaskStatus status)
     {
         ArgumentNullException.ThrowIfNull(status);
-        return $"/{workflowId}/{taskId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
+        return $"/{workflowId}/{taskInstanceId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 }

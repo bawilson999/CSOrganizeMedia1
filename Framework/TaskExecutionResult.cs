@@ -112,11 +112,13 @@ public sealed record TaskExecutionResult
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null)
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
+        IReadOnlyCollection<TaskTemplateSpawn>? spawnedTaskTemplates = null,
+        IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies = null)
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
-            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies),
+            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies, spawnedTaskTemplates, addedInstanceDependencies),
             output: output);
     }
 
@@ -150,16 +152,23 @@ public sealed record TaskExecutionResult
 
     private static TaskGraphChanges CreateGraphChanges(
         IReadOnlyCollection<TaskSpecification>? spawnedTasks,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies)
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies,
+        IReadOnlyCollection<TaskTemplateSpawn>? spawnedTaskTemplates,
+        IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies)
     {
-        if (IsNullOrEmpty(spawnedTasks) && IsNullOrEmpty(addedDependencies))
+        if (IsNullOrEmpty(spawnedTasks) &&
+            IsNullOrEmpty(addedDependencies) &&
+            IsNullOrEmpty(spawnedTaskTemplates) &&
+            IsNullOrEmpty(addedInstanceDependencies))
         {
             return TaskGraphChanges.None;
         }
 
         return new TaskGraphChanges(
             SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
-            AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>());
+            AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>(),
+            SpawnedTaskTemplates: spawnedTaskTemplates ?? Array.Empty<TaskTemplateSpawn>(),
+            AddedInstanceDependencies: addedInstanceDependencies ?? Array.Empty<TaskInstanceDependency>());
     }
 
     private static bool IsNullOrEmpty<T>(IReadOnlyCollection<T>? values)

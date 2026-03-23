@@ -6,9 +6,11 @@ public interface IExecutionContext
 
     TaskId TaskId { get; }
 
+    TaskInstanceId TaskInstanceId { get; }
+
     TaskSpecification TaskSpecification { get; }
 
-    IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
+    IReadOnlyDictionary<TaskInstanceId, TaskStatus> DependencyStatuses { get; }
 
-    IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
+    IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?> DependencyOutputs { get; }
 }

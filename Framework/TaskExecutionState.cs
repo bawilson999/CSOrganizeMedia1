@@ -2,15 +2,18 @@ namespace OrganizeMedia.Framework;
 
 internal sealed class TaskExecutionState : ExecutionStateCore
 {
-    internal TaskExecutionState(WorkflowId workflowId, TaskId taskId)
+    internal TaskExecutionState(WorkflowId workflowId, TaskId taskId, TaskInstanceId taskInstanceId)
         : base(workflowId)
     {
         TaskId = taskId;
+        TaskInstanceId = taskInstanceId;
         TotalSteps = 1;
         CompletedSteps = 0;
     }
 
     public TaskId TaskId { get; init; }
+
+    public TaskInstanceId TaskInstanceId { get; init; }
 
     public int TotalSteps { get; internal set; }
 
@@ -21,6 +24,7 @@ internal sealed class TaskExecutionState : ExecutionStateCore
         return new TaskStatus(
             WorkflowId: WorkflowId,
             TaskId: TaskId,
+            TaskInstanceId: TaskInstanceId,
             ExecutionPhase: ExecutionPhase,
             ExecutionOutcome: ExecutionOutcome,
             FailureKind: FailureKind,
