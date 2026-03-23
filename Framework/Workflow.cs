@@ -68,7 +68,7 @@ public class Workflow
         return $"/{WorkflowId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 
-    public void MarkReadyToRun()
+    internal void MarkReadyToRun()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsureCanMarkReadyToRun(
@@ -85,7 +85,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkQueued()
+    internal void MarkQueued()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -97,7 +97,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkRunning()
+    internal void MarkRunning()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -109,7 +109,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkSucceeded(ExecutionOutput output = null)
+    internal void MarkSucceeded(ExecutionOutput output = null)
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -125,7 +125,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkCanceled(
+    internal void MarkCanceled(
         ExecutionOutput output = null,
         ErrorInfo error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
@@ -150,7 +150,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkFailed(
+    internal void MarkFailed(
         ExecutionFailureKind failureKind,
         ExecutionOutput output = null,
         ErrorInfo error = null,
@@ -178,7 +178,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    public void MarkFailed(
+    internal void MarkFailed(
         Exception exception,
         ExecutionFailureKind failureKind,
         ExecutionOutput output = null,
