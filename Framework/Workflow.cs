@@ -31,30 +31,18 @@ public class Workflow
         specification.Validate();
 
         Workflow workflow = new Workflow(specification.WorkflowId, specification.MaxConcurrency);
-        Dictionary<TaskId, Task> tasksById = new Dictionary<TaskId, Task>();
 
         foreach (TaskSpecification taskSpecification in specification.Tasks)
         {
             Task task = new Task(specification.WorkflowId, taskSpecification);
             workflow.AddTask(task);
-            tasksById.Add(task.TaskId, task);
         }
 
         foreach (TaskDependencySpecification dependency in specification.Dependencies)
         {
-            if (!tasksById.TryGetValue(dependency.PrerequisiteTaskId, out Task prerequisiteTask))
-            {
-                throw new InvalidOperationException(
-                    $"Workflow specification {specification.WorkflowId} references missing prerequisite task {dependency.PrerequisiteTaskId}.");
-            }
-
-            if (!tasksById.TryGetValue(dependency.DependentTaskId, out Task dependentTask))
-            {
-                throw new InvalidOperationException(
-                    $"Workflow specification {specification.WorkflowId} references missing dependent task {dependency.DependentTaskId}.");
-            }
-
-            workflow.AddAdjacency(prerequisiteTask, dependentTask);
+            workflow.AddAdjacency(
+                workflow._tasksById[dependency.PrerequisiteTaskId],
+                workflow._tasksById[dependency.DependentTaskId]);
         }
 
         return workflow;
