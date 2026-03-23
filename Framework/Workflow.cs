@@ -204,16 +204,10 @@ public class Workflow
         ArgumentNullException.ThrowIfNull(currentTask);
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        IReadOnlyCollection<TaskSpecification> spawnedTasks = executionResult.SpawnedTasks ?? Array.Empty<TaskSpecification>();
-        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = executionResult.AddedDependencies ?? Array.Empty<TaskDependencySpecification>();
-        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = executionResult.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
-
-        if (executionResult.ExecutionOutcome != ExecutionOutcome.Succeeded &&
-            (spawnedTasks.Count > 0 || addedDependencies.Count > 0 || fanInSpecifications.Count > 0))
-        {
-            throw new InvalidOperationException(
-                $"Task {currentTask.TaskId} can only emit runtime graph mutations on successful completion.");
-        }
+        TaskRuntimeMutations runtimeMutations = executionResult.RuntimeMutations ?? TaskRuntimeMutations.None;
+        IReadOnlyCollection<TaskSpecification> spawnedTasks = runtimeMutations.SpawnedTasks;
+        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = runtimeMutations.AddedDependencies;
+        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = runtimeMutations.FanInSpecifications;
 
         List<TaskId> spawnedTaskIds = new List<TaskId>();
 

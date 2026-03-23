@@ -1,27 +1,66 @@
 namespace OrganizeMedia.Framework;
 
-public record TaskExecutionResult(
-    ExecutionOutcome ExecutionOutcome,
-    ExecutionFailureKind FailureKind = ExecutionFailureKind.None,
-    ExecutionOutput Output = null,
-    ErrorInfo Error = null,
-    ExecutionRecoverability? Recoverability = null,
-    IReadOnlyCollection<TaskSpecification> SpawnedTasks = null,
-    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies = null,
-    IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications = null)
+public sealed record TaskExecutionResult
 {
+    private TaskExecutionResult(
+        ExecutionOutcome executionOutcome,
+        ExecutionFailureKind failureKind = ExecutionFailureKind.None,
+        ExecutionOutput output = null,
+        ErrorInfo error = null,
+        ExecutionRecoverability? recoverability = null,
+        TaskRuntimeMutations runtimeMutations = null)
+    {
+        ExecutionOutcome = executionOutcome;
+        FailureKind = failureKind;
+        Output = output;
+        Error = error;
+        Recoverability = recoverability;
+        RuntimeMutations = runtimeMutations;
+    }
+
+    public ExecutionOutcome ExecutionOutcome { get; }
+
+    public ExecutionFailureKind FailureKind { get; }
+
+    public ExecutionOutput Output { get; }
+
+    public ErrorInfo Error { get; }
+
+    public ExecutionRecoverability? Recoverability { get; }
+
+    public TaskRuntimeMutations RuntimeMutations { get; }
+
+    public IReadOnlyCollection<TaskSpecification> SpawnedTasks =>
+        RuntimeMutations?.SpawnedTasks ?? Array.Empty<TaskSpecification>();
+
+    public IReadOnlyCollection<TaskDependencySpecification> AddedDependencies =>
+        RuntimeMutations?.AddedDependencies ?? Array.Empty<TaskDependencySpecification>();
+
+    public IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications =>
+        RuntimeMutations?.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
+
+    internal static TaskExecutionResult SucceededWithMutations(
+        ExecutionOutput output = null,
+        TaskRuntimeMutations runtimeMutations = null)
+    {
+        return new TaskExecutionResult(
+            executionOutcome: ExecutionOutcome.Succeeded,
+            output: output,
+            runtimeMutations: runtimeMutations ?? TaskRuntimeMutations.None);
+    }
+
     public static TaskExecutionResult Succeeded(
         ExecutionOutput output = null,
         IReadOnlyCollection<TaskSpecification> spawnedTasks = null,
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = null,
         IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = null)
     {
-        return new TaskExecutionResult(
-            ExecutionOutcome: ExecutionOutcome.Succeeded,
-            Output: output,
-            SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
-            AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>(),
-            FanInSpecifications: fanInSpecifications ?? Array.Empty<TaskFanInSpecification>());
+        return SucceededWithMutations(
+            output,
+            TaskRuntimeMutations.Create(
+                spawnedTasks: spawnedTasks,
+                addedDependencies: addedDependencies,
+                fanInSpecifications: fanInSpecifications));
     }
 
     public static TaskExecutionResult Canceled(
@@ -30,13 +69,10 @@ public record TaskExecutionResult(
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         return new TaskExecutionResult(
-            ExecutionOutcome: ExecutionOutcome.Canceled,
-            Output: output,
-            Error: error,
-            Recoverability: recoverability,
-            SpawnedTasks: Array.Empty<TaskSpecification>(),
-            AddedDependencies: Array.Empty<TaskDependencySpecification>(),
-            FanInSpecifications: Array.Empty<TaskFanInSpecification>());
+            executionOutcome: ExecutionOutcome.Canceled,
+            output: output,
+            error: error,
+            recoverability: recoverability);
     }
 
     public static TaskExecutionResult Failed(
@@ -54,13 +90,10 @@ public record TaskExecutionResult(
         }
 
         return new TaskExecutionResult(
-            ExecutionOutcome: ExecutionOutcome.Failed,
-            FailureKind: failureKind,
-            Output: output,
-            Error: error,
-            Recoverability: recoverability,
-            SpawnedTasks: Array.Empty<TaskSpecification>(),
-            AddedDependencies: Array.Empty<TaskDependencySpecification>(),
-            FanInSpecifications: Array.Empty<TaskFanInSpecification>());
+            executionOutcome: ExecutionOutcome.Failed,
+            failureKind: failureKind,
+            output: output,
+            error: error,
+            recoverability: recoverability);
     }
 }
