@@ -30,10 +30,10 @@ public class WorkflowObserverTests
             observer.TaskTransitions.Select(transition => transition.CurrentStatus.ExecutionPhase));
         Assert.All(
             observer.TaskTransitions,
-            transition => Assert.Equal(new TaskId("A"), transition.TaskId));
+            transition => Assert.Equal(new TaskTemplateId("A"), transition.TaskTemplateId));
         Assert.All(
             observer.TaskTransitions,
-            transition => Assert.Equal(new TaskInstanceId(new TaskId("A"), 1), transition.TaskInstanceId));
+            transition => Assert.Equal(new TaskInstanceId(new TaskTemplateId("A"), 1), transition.TaskInstanceId));
         Assert.Equal(ExecutionOutcome.Pending, observer.WorkflowTransitions[0].PreviousStatus.ExecutionOutcome);
         Assert.Equal(ExecutionOutcome.Succeeded, observer.WorkflowTransitions[^1].CurrentStatus.ExecutionOutcome);
         Assert.Equal(ExecutionOutcome.Succeeded, observer.TaskTransitions[^1].CurrentStatus.ExecutionOutcome);
@@ -43,14 +43,14 @@ public class WorkflowObserverTests
     public void RunToCompletion_NotifiesObserverForRuntimeGraphChanges()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId("ObservedDynamicWorkflow"),
+            WorkflowTemplateId: new WorkflowTemplateId("ObservedDynamicWorkflow"),
             Tasks:
             [
                 new TaskSpecification(
-                    TaskId: new TaskId("A"),
+                    TaskTemplateId: new TaskTemplateId("A"),
                     TaskType: new TaskType("ScanMp4Directory")),
                 new TaskSpecification(
-                    TaskId: new TaskId("C"),
+                    TaskTemplateId: new TaskTemplateId("C"),
                     TaskType: new TaskType("AggregateMp4Results"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>(),
@@ -72,41 +72,48 @@ public class WorkflowObserverTests
     [Fact]
     public void TextWriterWorkflowObserver_WritesExpectedTransitionAndGraphChangeLines()
     {
+        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+
         StringWriter writer = new StringWriter();
         TextWriterWorkflowObserver observer = new TextWriterWorkflowObserver(writer);
 
         observer.OnWorkflowTransition(new WorkflowTransitionEvent(
-            WorkflowId: new WorkflowId("W0"),
-            PreviousStatus: new WorkflowStatus(new WorkflowId("W0"), ExecutionPhase.NotStarted, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
-            CurrentStatus: new WorkflowStatus(new WorkflowId("W0"), ExecutionPhase.ReadyToRun, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
+            WorkflowTemplateId: workflowTemplateId,
+            WorkflowInstanceId: workflowInstanceId,
+            PreviousStatus: new WorkflowStatus(workflowTemplateId, workflowInstanceId, ExecutionPhase.NotStarted, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
+            CurrentStatus: new WorkflowStatus(workflowTemplateId, workflowInstanceId, ExecutionPhase.ReadyToRun, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
             Timestamp: DateTime.UtcNow));
 
         observer.OnTaskTransition(new TaskTransitionEvent(
-            WorkflowId: new WorkflowId("W0"),
-            TaskId: new TaskId("A"),
-            TaskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
-            PreviousStatus: new TaskStatus(new WorkflowId("W0"), new TaskId("A"), new TaskInstanceId(new TaskId("A"), 1)),
-            CurrentStatus: new TaskStatus(new WorkflowId("W0"), new TaskId("A"), new TaskInstanceId(new TaskId("A"), 1), ExecutionPhase.Running, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome),
+            WorkflowTemplateId: workflowTemplateId,
+            WorkflowInstanceId: workflowInstanceId,
+            TaskTemplateId: new TaskTemplateId("A"),
+            TaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
+            PreviousStatus: new TaskStatus(workflowTemplateId, workflowInstanceId, new TaskTemplateId("A"), new TaskInstanceId(new TaskTemplateId("A"), 1)),
+            CurrentStatus: new TaskStatus(workflowTemplateId, workflowInstanceId, new TaskTemplateId("A"), new TaskInstanceId(new TaskTemplateId("A"), 1), ExecutionPhase.Running, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome),
             Timestamp: DateTime.UtcNow));
 
         observer.OnTaskAdded(new TaskAddedEvent(
-            WorkflowId: new WorkflowId("W0"),
-            TaskId: new TaskId("B"),
-            TaskInstanceId: new TaskInstanceId(new TaskId("B"), 1),
+            WorkflowTemplateId: workflowTemplateId,
+            WorkflowInstanceId: workflowInstanceId,
+            TaskTemplateId: new TaskTemplateId("B"),
+            TaskInstanceId: new TaskInstanceId(new TaskTemplateId("B"), 1),
             Timestamp: DateTime.UtcNow));
 
         observer.OnDependencyAdded(new DependencyAddedEvent(
-            WorkflowId: new WorkflowId("W0"),
-            PrerequisiteTaskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
-            DependentTaskInstanceId: new TaskInstanceId(new TaskId("B"), 1),
+            WorkflowTemplateId: workflowTemplateId,
+            WorkflowInstanceId: workflowInstanceId,
+            PrerequisiteTaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
+            DependentTaskInstanceId: new TaskInstanceId(new TaskTemplateId("B"), 1),
             Timestamp: DateTime.UtcNow));
 
         string output = writer.ToString();
 
-        Assert.Contains("/W0 ReadyToRun, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
-        Assert.Contains("/W0/A/1 Running, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
-        Assert.Contains("/W0/B/1 added by runtime graph change", output, StringComparison.Ordinal);
-        Assert.Contains("/W0 dependency added: A/1 -> B/1", output, StringComparison.Ordinal);
+        Assert.Contains("/W0/1 ReadyToRun, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
+        Assert.Contains("/W0/1/A/1 Running, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
+        Assert.Contains("/W0/1/B/1 added by runtime graph change", output, StringComparison.Ordinal);
+        Assert.Contains("/W0/1 dependency added: A/1 -> B/1", output, StringComparison.Ordinal);
     }
 
     private sealed class RecordingWorkflowObserver : IWorkflowObserver

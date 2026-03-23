@@ -4,8 +4,8 @@ internal sealed class WorkflowExecutionState : ExecutionStateCore
 {
     private readonly Dictionary<TaskInstanceId, TaskExecutionState> _taskExecutionStates;
 
-    internal WorkflowExecutionState(WorkflowId workflowId)
-        : base(workflowId)
+    internal WorkflowExecutionState(WorkflowInstanceId workflowInstanceId)
+        : base(workflowInstanceId)
     {
         _taskExecutionStates = new Dictionary<TaskInstanceId, TaskExecutionState>();
     }
@@ -23,7 +23,8 @@ internal sealed class WorkflowExecutionState : ExecutionStateCore
     internal WorkflowStatus ToStatus()
     {
         return new WorkflowStatus(
-            WorkflowId: WorkflowId,
+            WorkflowTemplateId: WorkflowTemplateId,
+            WorkflowInstanceId: WorkflowInstanceId,
             ExecutionPhase: ExecutionPhase,
             ExecutionOutcome: ExecutionOutcome,
             FailureKind: FailureKind,

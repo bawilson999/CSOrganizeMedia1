@@ -35,7 +35,7 @@ internal sealed class WorkflowOrchestrator
                     }
 
                     throw new InvalidOperationException(
-                        $"Workflow {workflow.WorkflowId} has unfinished tasks but no ready tasks. The graph may contain a cycle or a blocked dependency.");
+                        $"Workflow {workflow.WorkflowInstanceId} has unfinished tasks but no ready tasks. The graph may contain a cycle or a blocked dependency.");
                 }
 
                 currentTask = readyQueue.Dequeue();

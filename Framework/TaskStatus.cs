@@ -1,8 +1,9 @@
 namespace OrganizeMedia.Framework;
 
 public record TaskStatus(
-    WorkflowId WorkflowId,
-    TaskId TaskId,
+    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskTemplateId TaskTemplateId,
     TaskInstanceId TaskInstanceId,
     ExecutionPhase ExecutionPhase = ExecutionPhase.NotStarted,
     ExecutionOutcome ExecutionOutcome = ExecutionOutcome.Pending,
@@ -17,6 +18,5 @@ public record TaskStatus(
     DateTime? QueuedTimestamp = null,
     DateTime? ReadyToRunTimestamp = null,
     DateTime? RunningTimestamp = null,
-    DateTime? FinishedTimestamp = null)
-{
-}
+    DateTime? FinishedTimestamp = null,
+    TaskInstanceId? SpawnedByTaskInstanceId = null);

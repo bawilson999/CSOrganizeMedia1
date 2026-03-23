@@ -9,9 +9,11 @@ internal class ExecutionContext : IExecutionContext
         ArgumentNullException.ThrowIfNull(workflow);
         ArgumentNullException.ThrowIfNull(task);
 
-        WorkflowId = workflow.WorkflowId;
-        TaskId = task.TaskId;
+        WorkflowTemplateId = workflow.WorkflowTemplateId;
+        WorkflowInstanceId = workflow.WorkflowInstanceId;
+        TaskTemplateId = task.TaskTemplateId;
         TaskInstanceId = task.TaskInstanceId;
+        SpawnedByTaskInstanceId = task.SpawnedByTaskInstanceId;
         TaskSpecification = task.Specification;
 
         Dictionary<TaskInstanceId, TaskStatus> dependencyStatuses = workflow
@@ -21,11 +23,15 @@ internal class ExecutionContext : IExecutionContext
         _dependencyStatuses = dependencyStatuses;
     }
 
-    public WorkflowId WorkflowId { get; }
+    public WorkflowTemplateId WorkflowTemplateId { get; }
 
-    public TaskId TaskId { get; }
+    public WorkflowInstanceId WorkflowInstanceId { get; }
+
+    public TaskTemplateId TaskTemplateId { get; }
 
     public TaskInstanceId TaskInstanceId { get; }
+
+    public TaskInstanceId? SpawnedByTaskInstanceId { get; }
 
     public TaskSpecification TaskSpecification { get; }
 

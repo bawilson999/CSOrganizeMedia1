@@ -40,18 +40,21 @@ WorkflowStatus status = workflow.Status;
 DagWorkflow uses small value objects instead of raw strings for identifiers and task metadata.
 
 ```csharp
-WorkflowId workflowId = new WorkflowId("W0");
-TaskId taskId = new TaskId("A");
+WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
+WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+TaskTemplateId taskTemplateId = new TaskTemplateId("A");
 TaskType taskType = new TaskType("ScanMp4Directory");
 InputType inputType = new InputType("application/json");
 ```
 
 Current conventions:
 
-- `WorkflowId` identifies one workflow instance.
-- `TaskId` identifies one task within a workflow.
+- `WorkflowTemplateId` identifies one reusable workflow template.
+- `WorkflowInstanceId` identifies one concrete runtime workflow instance.
+- `TaskTemplateId` is the template-scoped task identifier value object.
 - `TaskType` is an open-ended label describing what a task does.
 - `InputType` is an open-ended label describing the shape or media type of `InputJson`.
+- `TaskCardinality` tells consumers whether a task template starts as a singleton or as a zero-to-many runtime family.
 
 The framework does not treat `TaskType` or `InputType` as enums. They are labels chosen by the consumer.
 
@@ -61,33 +64,41 @@ These types define what should run.
 
 ```csharp
 public record WorkflowSpecification(
-    WorkflowId WorkflowId,
+    WorkflowTemplateId WorkflowTemplateId,
     IReadOnlyCollection<TaskSpecification> Tasks,
     IReadOnlyCollection<TaskDependencySpecification> Dependencies,
     int? MaxConcurrency = null);
 
 public record TaskSpecification(
-    TaskId TaskId,
+    TaskTemplateId TaskTemplateId,
     TaskType TaskType,
     InputType? InputType = null,
     string? InputJson = null,
-    TaskId? SpawnedByTaskId = null);
+    TaskCardinality Cardinality = TaskCardinality.Singleton);
 
 public readonly record struct TaskDependencySpecification(
-    TaskId PrerequisiteTaskId,
-    TaskId DependentTaskId);
+    TaskTemplateId PrerequisiteTaskTemplateId,
+    TaskTemplateId DependentTaskTemplateId);
 ```
+
+These names are the final public template-identity surface used throughout the framework.
 
 Important current validation rules:
 
 - workflow ids must be non-empty
-- task ids must be unique within a workflow
+- task template ids must be unique within a workflow
 - dependency endpoints must exist
 - self-dependencies are invalid
 - duplicate dependencies are invalid
 - dependency cycles are rejected
 - `MaxConcurrency`, when provided, must be positive
 - `TaskSpecification.InputJson` requires `InputType`
+- the engine derives initial instance count from cardinality
+
+Current engine mapping:
+
+- `Singleton` -> one initial runtime instance
+- `ZeroToMany` -> zero initial runtime instances
 
 ## Quick Start
 
@@ -99,11 +110,11 @@ This example uses the built-in `DefaultTaskExecutor`, which simply formats the t
 using OrganizeMedia.Framework;
 
 WorkflowSpecification specification = new WorkflowSpecification(
-    WorkflowId: new WorkflowId("HelloWorkflow"),
+    WorkflowTemplateId: new WorkflowTemplateId("HelloWorkflow"),
     Tasks:
     [
         new TaskSpecification(
-            TaskId: new TaskId("A"),
+            TaskTemplateId: new TaskTemplateId("A"),
             TaskType: new TaskType("SayHello"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"name\": \"world\" }")
@@ -114,7 +125,7 @@ Workflow workflow = Workflow.FromSpecification(specification);
 workflow.RunToCompletion();
 
 WorkflowStatus status = workflow.Status;
-TextExecutionOutput output = (TextExecutionOutput)status.TaskStatuses[new TaskId("A")].Output!;
+TextExecutionOutput output = (TextExecutionOutput)status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("A"), 1)].Output!;
 Console.WriteLine(output.Value);
 ```
 
@@ -132,24 +143,24 @@ Static workflows define all tasks and dependencies before execution starts.
 using OrganizeMedia.Framework;
 
 WorkflowSpecification specification = new WorkflowSpecification(
-    WorkflowId: new WorkflowId("StaticWorkflow"),
+    WorkflowTemplateId: new WorkflowTemplateId("StaticWorkflow"),
     Tasks:
     [
-        new TaskSpecification(new TaskId("A"), new TaskType("TaskA")),
-        new TaskSpecification(new TaskId("B"), new TaskType("TaskB")),
-        new TaskSpecification(new TaskId("C"), new TaskType("TaskC")),
-        new TaskSpecification(new TaskId("D"), new TaskType("TaskD")),
-        new TaskSpecification(new TaskId("E"), new TaskType("TaskE")),
-        new TaskSpecification(new TaskId("F"), new TaskType("TaskF"))
+        new TaskSpecification(new TaskTemplateId("A"), new TaskType("TaskA")),
+        new TaskSpecification(new TaskTemplateId("B"), new TaskType("TaskB")),
+        new TaskSpecification(new TaskTemplateId("C"), new TaskType("TaskC")),
+        new TaskSpecification(new TaskTemplateId("D"), new TaskType("TaskD")),
+        new TaskSpecification(new TaskTemplateId("E"), new TaskType("TaskE")),
+        new TaskSpecification(new TaskTemplateId("F"), new TaskType("TaskF"))
     ],
     Dependencies:
     [
-        new TaskDependencySpecification(new TaskId("A"), new TaskId("B")),
-        new TaskDependencySpecification(new TaskId("A"), new TaskId("C")),
-        new TaskDependencySpecification(new TaskId("B"), new TaskId("D")),
-        new TaskDependencySpecification(new TaskId("C"), new TaskId("E")),
-        new TaskDependencySpecification(new TaskId("D"), new TaskId("F")),
-        new TaskDependencySpecification(new TaskId("E"), new TaskId("F"))
+        new TaskDependencySpecification(new TaskTemplateId("A"), new TaskTemplateId("B")),
+        new TaskDependencySpecification(new TaskTemplateId("A"), new TaskTemplateId("C")),
+        new TaskDependencySpecification(new TaskTemplateId("B"), new TaskTemplateId("D")),
+        new TaskDependencySpecification(new TaskTemplateId("C"), new TaskTemplateId("E")),
+        new TaskDependencySpecification(new TaskTemplateId("D"), new TaskTemplateId("F")),
+        new TaskDependencySpecification(new TaskTemplateId("E"), new TaskTemplateId("F"))
     ],
     MaxConcurrency: 2);
 
@@ -221,19 +232,23 @@ public sealed class SampleTaskExecutor : ITaskExecutor
 ```csharp
 public interface IExecutionContext
 {
-    WorkflowId WorkflowId { get; }
-    TaskId TaskId { get; }
+    WorkflowTemplateId WorkflowTemplateId { get; }
+    WorkflowInstanceId WorkflowInstanceId { get; }
+    TaskTemplateId TaskTemplateId { get; }
+    TaskInstanceId TaskInstanceId { get; }
+    TaskInstanceId? SpawnedByTaskInstanceId { get; }
     TaskSpecification TaskSpecification { get; }
-    IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
-    IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
+    IReadOnlyDictionary<TaskInstanceId, TaskStatus> DependencyStatuses { get; }
+    IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?> DependencyOutputs { get; }
 }
 ```
 
 Important details:
 
 - `TaskSpecification` is the declarative definition for the current task.
-- `DependencyStatuses` shows the current status snapshot for each prerequisite task.
-- `DependencyOutputs` is keyed by dependency task id.
+- `TaskTemplateId` identifies the current task template while `TaskInstanceId` identifies the concrete runtime instance being executed.
+- `DependencyStatuses` shows the current status snapshot for each prerequisite task instance.
+- `DependencyOutputs` is keyed by dependency task instance id.
 - dependency outputs are nullable by type, so task code should either handle missing outputs explicitly or assert that a specific dependency output is present.
 
 ### What The Executor Cannot Do
@@ -364,7 +379,7 @@ Console.WriteLine(workflowStatus.Recoverability);
 Task status is available through `WorkflowStatus.TaskStatuses`.
 
 ```csharp
-TaskStatus taskStatus = workflow.Status.TaskStatuses[new TaskId("A")];
+TaskStatus taskStatus = workflow.Status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("A"), 1)];
 
 Console.WriteLine(taskStatus.ExecutionPhase);
 Console.WriteLine(taskStatus.ExecutionOutcome);
@@ -432,10 +447,65 @@ Typical example:
 
 1. Task `A` scans a directory.
 2. Task `A` discovers files.
-3. Task `A` returns one spawned task per file.
+3. Task `A` spawns one runtime instance of a zero-to-many template per file.
 4. Task `C` should run only after all discovered file tasks finish.
 
-### Returning Spawned Tasks
+### Preferred Model: Cardinality Plus Template Spawns
+
+The preferred public model is:
+
+- declare fixed singleton templates with `TaskCardinality.Singleton`
+- declare dynamic families with `TaskCardinality.ZeroToMany`
+- materialize runtime instances of those dynamic templates with `TaskTemplateSpawn`
+
+```csharp
+WorkflowSpecification specification = new WorkflowSpecification(
+    WorkflowTemplateId: new WorkflowTemplateId("MetadataReport"),
+    Tasks:
+    [
+        new TaskSpecification(
+            TaskTemplateId: new TaskTemplateId("DiscoverFiles"),
+            TaskType: new TaskType("DiscoverFiles"),
+            Cardinality: TaskCardinality.Singleton),
+        new TaskSpecification(
+            TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
+            TaskType: new TaskType("ExtractFileMetadata"),
+            Cardinality: TaskCardinality.ZeroToMany),
+        new TaskSpecification(
+            TaskTemplateId: new TaskTemplateId("GenerateMetadataReport"),
+            TaskType: new TaskType("GenerateMetadataReport"),
+            Cardinality: TaskCardinality.Singleton)
+    ],
+    Dependencies:
+    [
+        new TaskDependencySpecification(new TaskTemplateId("DiscoverFiles"), new TaskTemplateId("ExtractFileMetadata")),
+        new TaskDependencySpecification(new TaskTemplateId("ExtractFileMetadata"), new TaskTemplateId("GenerateMetadataReport"))
+    ]);
+```
+
+At runtime, `DiscoverFiles` can materialize extraction instances like this:
+
+```csharp
+return TaskExecutionResult.Succeeded(
+    spawnedTaskTemplates:
+    [
+        new TaskTemplateSpawn(
+            SpawnKey: "extract-1",
+            TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
+            InputType: new InputType("application/json"),
+            InputJson: "{ \"filePath\": \"a.mp4\" }")
+    ],
+    addedInstanceDependencies:
+    [
+        new TaskInstanceDependency(
+            Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
+            Dependent: TaskNodeReference.TemplateTask(new TaskTemplateId("GenerateMetadataReport")))
+    ]);
+```
+
+### Low-Level Escape Hatch: Returning Spawned Tasks
+
+The lower-level explicit path still exists when you want to return fully concrete task specifications directly:
 
 ```csharp
 return TaskExecutionResult.Succeeded(
@@ -443,19 +513,19 @@ return TaskExecutionResult.Succeeded(
     spawnedTasks:
     [
         new TaskSpecification(
-            TaskId: new TaskId("B-1"),
+            TaskTemplateId: new TaskTemplateId("B-1"),
             TaskType: new TaskType("ProcessFile"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"file\": \"a.mp4\" }"),
         new TaskSpecification(
-            TaskId: new TaskId("B-2"),
+            TaskTemplateId: new TaskTemplateId("B-2"),
             TaskType: new TaskType("ProcessFile"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"file\": \"b.mp4\" }")
     ]);
 ```
 
-If `SpawnedByTaskId` is omitted, the workflow runtime fills it in with the current task id.
+Spawn provenance is runtime state, not part of `TaskSpecification`. Spawned task instances expose their parent through runtime status and execution context.
 
 ### Returning Runtime Dependencies
 
@@ -463,12 +533,12 @@ If `SpawnedByTaskId` is omitted, the workflow runtime fills it in with the curre
 TaskSpecification[] spawnedTasks =
 [
     new TaskSpecification(
-        TaskId: new TaskId("B-1"),
+        TaskTemplateId: new TaskTemplateId("B-1"),
         TaskType: new TaskType("ProcessFile"),
         InputType: new InputType("application/json"),
         InputJson: "{ \"file\": \"a.mp4\" }"),
     new TaskSpecification(
-        TaskId: new TaskId("B-2"),
+        TaskTemplateId: new TaskTemplateId("B-2"),
         TaskType: new TaskType("ProcessFile"),
         InputType: new InputType("application/json"),
         InputJson: "{ \"file\": \"b.mp4\" }")
@@ -478,15 +548,40 @@ return TaskExecutionResult.Succeeded(
     spawnedTasks: spawnedTasks,
     addedDependencies:
     [
-        new TaskDependencySpecification(new TaskId("B-1"), new TaskId("C")),
-        new TaskDependencySpecification(new TaskId("B-2"), new TaskId("C"))
+        new TaskDependencySpecification(new TaskTemplateId("B-1"), new TaskTemplateId("C")),
+        new TaskDependencySpecification(new TaskTemplateId("B-2"), new TaskTemplateId("C"))
     ]);
 ```
 
 If you need additional prerequisites, add them explicitly:
 
 ```csharp
-new TaskDependencySpecification(new TaskId("AUX"), new TaskId("C"))
+new TaskDependencySpecification(new TaskTemplateId("AUX"), new TaskTemplateId("C"))
+```
+
+### Returning Instance-Aware Dependencies
+
+When you spawn runtime instances from templates, prefer `TaskInstanceDependency` and `TaskNodeReference`.
+
+```csharp
+return TaskExecutionResult.Succeeded(
+    spawnedTaskTemplates:
+    [
+        new TaskTemplateSpawn(
+            SpawnKey: "extract-1",
+            TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
+            InputType: new InputType("application/json"),
+            InputJson: "{ \"filePath\": \"a.mp4\" }")
+    ],
+    addedInstanceDependencies:
+    [
+        new TaskInstanceDependency(
+            Prerequisite: TaskNodeReference.TaskInstance(executionContext.TaskInstanceId),
+            Dependent: TaskNodeReference.SpawnedTask("extract-1")),
+        new TaskInstanceDependency(
+            Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
+            Dependent: TaskNodeReference.TemplateTask(new TaskTemplateId("GenerateMetadataReport")))
+    ]);
 ```
 
 ### Inspecting Graph Changes
@@ -498,12 +593,22 @@ TaskExecutionResult result = executor.Execute(executionContext);
 
 foreach (TaskSpecification spawnedTask in result.GraphChanges.SpawnedTasks)
 {
-    Console.WriteLine($"spawned: {spawnedTask.TaskId}");
+    Console.WriteLine($"spawned: {spawnedTask.TaskTemplateId}");
+}
+
+foreach (TaskTemplateSpawn spawnedTemplate in result.GraphChanges.SpawnedTaskTemplates)
+{
+    Console.WriteLine($"spawned from template: {spawnedTemplate.TaskTemplateId} with key {spawnedTemplate.SpawnKey}");
 }
 
 foreach (TaskDependencySpecification dependency in result.GraphChanges.AddedDependencies)
 {
-    Console.WriteLine($"dependency: {dependency.PrerequisiteTaskId} -> {dependency.DependentTaskId}");
+    Console.WriteLine($"dependency: {dependency.PrerequisiteTaskTemplateId} -> {dependency.DependentTaskTemplateId}");
+}
+
+foreach (TaskInstanceDependency dependency in result.GraphChanges.AddedInstanceDependencies)
+{
+    Console.WriteLine("instance dependency materialized");
 }
 ```
 
@@ -511,16 +616,16 @@ foreach (TaskDependencySpecification dependency in result.GraphChanges.AddedDepe
 
 ```csharp
 WorkflowSpecification specification = new WorkflowSpecification(
-    WorkflowId: new WorkflowId("Mp4Workflow"),
+    WorkflowTemplateId: new WorkflowTemplateId("Mp4Workflow"),
     Tasks:
     [
         new TaskSpecification(
-            TaskId: new TaskId("A"),
+            TaskTemplateId: new TaskTemplateId("A"),
             TaskType: new TaskType("ScanMp4Directory"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"path\": \"c:/media\" }"),
         new TaskSpecification(
-            TaskId: new TaskId("C"),
+            TaskTemplateId: new TaskTemplateId("C"),
             TaskType: new TaskType("AggregateMp4Results"))
     ],
     Dependencies: Array.Empty<TaskDependencySpecification>(),
@@ -619,7 +724,7 @@ This is invalid.
 
 ```csharp
 new TaskSpecification(
-    TaskId: new TaskId("A"),
+    TaskTemplateId: new TaskTemplateId("A"),
     TaskType: new TaskType("ScanDirectory"),
     InputJson: "{ \"path\": \"c:/media\" }")
 ```
@@ -631,7 +736,7 @@ If `InputJson` is present, provide `InputType` too.
 The type is:
 
 ```csharp
-IReadOnlyDictionary<TaskId, ExecutionOutput?>
+IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?>
 ```
 
 If your executor requires an output from a dependency, validate or assert it explicitly.
@@ -663,7 +768,7 @@ Typical tests assert:
 - final workflow outcome
 - executed task order
 - task outputs
-- spawned task inheritance of `SpawnedByTaskId`
+- spawned task runtime provenance through `SpawnedByTaskInstanceId`
 - observer event sequences
 - runtime dependency behavior
 

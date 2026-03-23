@@ -14,16 +14,16 @@ internal static class WorkflowTestSupport
         ArgumentNullException.ThrowIfNull(adjacencyArray);
         ArgumentException.ThrowIfNullOrWhiteSpace(taskType);
 
-        WorkflowId workflowId = new WorkflowId(workflowIdString);
+        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId(workflowIdString);
         List<TaskSpecification> taskSpecifications = new List<TaskSpecification>();
         List<TaskDependencySpecification> dependencySpecifications = new List<TaskDependencySpecification>();
 
         for (int i = 0; i < adjacencyArray.Length; i++)
         {
-            TaskId taskId = new TaskId("T" + i.ToString());
+            TaskTemplateId taskTemplateId = new TaskTemplateId("T" + i.ToString());
             taskSpecifications.Add(
                 new TaskSpecification(
-                    TaskId: taskId,
+                    TaskTemplateId: taskTemplateId,
                     TaskType: new TaskType(taskType),
                     InputType: new InputType("application/json"),
                     InputJson: $"{{\"taskIndex\":{i}}}"));
@@ -38,13 +38,13 @@ internal static class WorkflowTestSupport
                 int adjacentIndex = adjacentTaskIndices[j];
                 dependencySpecifications.Add(
                     new TaskDependencySpecification(
-                        PrerequisiteTaskId: new TaskId("T" + i.ToString()),
-                        DependentTaskId: new TaskId("T" + adjacentIndex.ToString())));
+                        PrerequisiteTaskTemplateId: new TaskTemplateId("T" + i.ToString()),
+                        DependentTaskTemplateId: new TaskTemplateId("T" + adjacentIndex.ToString())));
             }
         }
 
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: workflowId,
+            WorkflowTemplateId: workflowTemplateId,
             Tasks: taskSpecifications,
             Dependencies: dependencySpecifications,
             MaxConcurrency: maxConcurrency);
@@ -58,9 +58,9 @@ internal static class WorkflowTestSupport
         IReadOnlyCollection<TaskDependencySpecification> dependencies)
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId(workflowId),
+            WorkflowTemplateId: new WorkflowTemplateId(workflowId),
             Tasks: taskIds
-                .Select(taskId => new TaskSpecification(new TaskId(taskId), new TaskType(taskId)))
+                .Select(taskId => new TaskSpecification(new TaskTemplateId(taskId), new TaskType(taskId)))
                 .ToArray(),
             Dependencies: dependencies.ToArray());
 
@@ -83,7 +83,7 @@ internal sealed class RecordingFakeTaskExecutor : ITaskExecutor
 
     public TaskExecutionResult Execute(IExecutionContext executionContext)
     {
-        string taskId = executionContext.TaskId.Value;
+        string taskId = executionContext.TaskTemplateId.Value;
         ExecutedTaskIds.Add(taskId);
 
         if (!_resultsByTaskId.TryGetValue(taskId, out Queue<TaskExecutionResult>? results) || results.Count == 0)
@@ -106,7 +106,7 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 
     public List<string> ExecutedTaskIds { get; } = new List<string>();
 
-    public Dictionary<string, TaskId?> SpawnedByTaskIds { get; } = new Dictionary<string, TaskId?>();
+    public Dictionary<string, TaskInstanceId?> SpawnedByTaskInstanceIds { get; } = new Dictionary<string, TaskInstanceId?>();
 
     public List<string> AggregatorDependencyTaskIds { get; } = new List<string>();
 
@@ -114,7 +114,7 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 
     public TaskExecutionResult Execute(IExecutionContext executionContext)
     {
-        string taskId = executionContext.TaskId.Value;
+        string taskId = executionContext.TaskTemplateId.Value;
         ExecutedTaskIds.Add(taskId);
 
         return taskId switch
@@ -122,7 +122,7 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
             "A" => TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput("Discovered 3 mp4 files"),
                 spawnedTasks: SpawnedProcessTasks,
-                addedDependencies: CreateJoinDependencies(SpawnedProcessTasks, new TaskId("C"))),
+                addedDependencies: CreateJoinDependencies(SpawnedProcessTasks, new TaskTemplateId("C"))),
             "B-1" => RecordSpawnedTaskAndReturnResult(executionContext, "a.mp4"),
             "B-2" => RecordSpawnedTaskAndReturnResult(executionContext, "b.mp4"),
             "B-3" => RecordSpawnedTaskAndReturnResult(executionContext, "c.mp4"),
@@ -133,7 +133,7 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 
     private TaskExecutionResult RecordSpawnedTaskAndReturnResult(IExecutionContext executionContext, string fileName)
     {
-        SpawnedByTaskIds[executionContext.TaskId.Value] = executionContext.TaskSpecification.SpawnedByTaskId;
+        SpawnedByTaskInstanceIds[executionContext.TaskTemplateId.Value] = executionContext.SpawnedByTaskInstanceId;
         return TaskExecutionResult.Succeeded(new TextExecutionOutput($"processed:{fileName}"));
     }
 
@@ -158,7 +158,7 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
     private static TaskSpecification CreateProcessTask(string taskId, string fileName)
     {
         return new TaskSpecification(
-            TaskId: new TaskId(taskId),
+            TaskTemplateId: new TaskTemplateId(taskId),
             TaskType: new TaskType("ProcessMp4"),
             InputType: new InputType("application/json"),
             InputJson: $"{{ \"file\": \"{fileName}\" }}");
@@ -166,10 +166,10 @@ internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 
     private static TaskDependencySpecification[] CreateJoinDependencies(
         IReadOnlyCollection<TaskSpecification> spawnedTasks,
-        TaskId joinTaskId)
+        TaskTemplateId joinTaskId)
     {
         return spawnedTasks
-            .Select(taskSpecification => new TaskDependencySpecification(taskSpecification.TaskId, joinTaskId))
+            .Select(taskSpecification => new TaskDependencySpecification(taskSpecification.TaskTemplateId, joinTaskId))
             .ToArray();
     }
 }

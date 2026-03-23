@@ -1,7 +1,8 @@
 namespace OrganizeMedia.Framework;
 
 public record DependencyAddedEvent(
-    WorkflowId WorkflowId,
+    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowInstanceId WorkflowInstanceId,
     TaskInstanceId PrerequisiteTaskInstanceId,
     TaskInstanceId DependentTaskInstanceId,
     DateTime Timestamp);

@@ -7,35 +7,43 @@ public class FormattingAndRecoverabilityDefaultsTests
     [Fact]
     public void TaskStatusFormatter_FormatsExpectedDisplayLine()
     {
+        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+
         string formatted = TaskStatusFormatter.Format(
-            workflowId: new WorkflowId("W0"),
-            taskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
+            workflowInstanceId: workflowInstanceId,
+            taskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
             status: new TaskStatus(
-                WorkflowId: new WorkflowId("W0"),
-                TaskId: new TaskId("A"),
-                TaskInstanceId: new TaskInstanceId(new TaskId("A"), 1),
+                WorkflowTemplateId: workflowTemplateId,
+                WorkflowInstanceId: workflowInstanceId,
+                TaskTemplateId: new TaskTemplateId("A"),
+                TaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
                 ExecutionPhase: ExecutionPhase.Running,
                 ExecutionOutcome: ExecutionOutcome.Pending,
                 FailureKind: ExecutionFailureKind.None,
                 Recoverability: ExecutionRecoverability.AwaitingOutcome));
 
-        Assert.Equal("/W0/A/1 Running, Pending, None, AwaitingOutcome", formatted);
+        Assert.Equal("/W0/1/A/1 Running, Pending, None, AwaitingOutcome", formatted);
     }
 
     [Fact]
     public void WorkflowStatusFormatter_FormatsExpectedDisplayLine()
     {
+        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+
         string formatted = WorkflowStatusFormatter.Format(
-            workflowId: new WorkflowId("W0"),
+            workflowInstanceId: workflowInstanceId,
             status: new WorkflowStatus(
-                WorkflowId: new WorkflowId("W0"),
+                WorkflowTemplateId: workflowTemplateId,
+                WorkflowInstanceId: workflowInstanceId,
                 ExecutionPhase: ExecutionPhase.ReadyToRun,
                 ExecutionOutcome: ExecutionOutcome.Pending,
                 FailureKind: ExecutionFailureKind.None,
                 Recoverability: ExecutionRecoverability.AwaitingOutcome,
                 TaskStatuses: new Dictionary<TaskInstanceId, TaskStatus>()));
 
-        Assert.Equal("/W0 ReadyToRun, Pending, None, AwaitingOutcome", formatted);
+        Assert.Equal("/W0/1 ReadyToRun, Pending, None, AwaitingOutcome", formatted);
     }
 
     [Fact]

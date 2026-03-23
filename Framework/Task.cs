@@ -4,28 +4,40 @@ public class Task
 {
     private IWorkflowObserver _observer;
 
-    internal Task(WorkflowId workflowId, TaskSpecification specification, TaskInstanceId taskInstanceId)
-        : this(workflowId, specification, new TaskExecutionState(workflowId, specification.TaskId, taskInstanceId))
+    internal Task(
+        WorkflowInstanceId workflowInstanceId,
+        TaskSpecification specification,
+        TaskInstanceId taskInstanceId,
+        TaskInstanceId? spawnedByTaskInstanceId = null)
+        : this(
+            workflowInstanceId,
+            specification,
+            new TaskExecutionState(workflowInstanceId, specification.TaskTemplateId, taskInstanceId, spawnedByTaskInstanceId))
     {
     }
 
-    internal Task(WorkflowId workflowId, TaskSpecification specification, TaskExecutionState executionState)
+    internal Task(WorkflowInstanceId workflowInstanceId, TaskSpecification specification, TaskExecutionState executionState)
     {
         ArgumentNullException.ThrowIfNull(specification);
 
-        WorkflowId = workflowId;
-        TaskId = specification.TaskId;
+        WorkflowInstanceId = workflowInstanceId;
+        TaskTemplateId = specification.TaskTemplateId;
         TaskInstanceId = executionState.TaskInstanceId;
+        SpawnedByTaskInstanceId = executionState.SpawnedByTaskInstanceId;
         Specification = specification;
         ExecutionState = executionState;
         _observer = NullWorkflowObserver.Instance;
     }
 
-    public WorkflowId WorkflowId { get; init; }
+    public WorkflowTemplateId WorkflowTemplateId => WorkflowInstanceId.WorkflowTemplateId;
 
-    public TaskId TaskId { get; init; }
+    public WorkflowInstanceId WorkflowInstanceId { get; init; }
+
+    public TaskTemplateId TaskTemplateId { get; init; }
 
     public TaskInstanceId TaskInstanceId { get; init; }
+
+    public TaskInstanceId? SpawnedByTaskInstanceId { get; init; }
 
     public TaskSpecification Specification { get; init; }
 
@@ -35,7 +47,7 @@ public class Task
 
     public override string ToString()
     {
-        return $"/{WorkflowId}/{TaskInstanceId}";
+        return $"/{WorkflowInstanceId}/{TaskInstanceId}";
     }
 
     internal bool IsCompleteForWorkflowSuccess()
@@ -63,7 +75,7 @@ public class Task
         ExecutionRecoverability currentRecoverability = ExecutionState.Recoverability;
         ExecutionTransitionSupport.EnsureCanMarkReadyToRun(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             currentRecoverability: currentRecoverability);
 
@@ -86,7 +98,7 @@ public class Task
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.ReadyToRun);
         ExecutionState.ExecutionPhase = ExecutionPhase.Queued;
@@ -98,7 +110,7 @@ public class Task
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.Queued);
         ExecutionState.ExecutionPhase = ExecutionPhase.Running;
@@ -110,7 +122,7 @@ public class Task
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.Running);
         ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
@@ -130,7 +142,7 @@ public class Task
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.Running);
         ExecutionTransitionSupport.EnsureTerminalRecoverability(
@@ -156,7 +168,7 @@ public class Task
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
             subjectName: "Task",
-            subjectId: TaskId.Value,
+            subjectId: TaskTemplateId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.Running);
 
@@ -196,7 +208,7 @@ public class Task
             ExecutionState.ExecutionPhase == ExecutionPhase.Finished)
         {
             throw new InvalidOperationException(
-                $"Task {TaskId} cannot be reset after execution has started.");
+                $"Task {TaskTemplateId} cannot be reset after execution has started.");
         }
 
         ExecutionState.ExecutionPhase = ExecutionPhase.NotStarted;
@@ -220,8 +232,9 @@ public class Task
         try
         {
             _observer.OnTaskTransition(new TaskTransitionEvent(
-                WorkflowId: WorkflowId,
-                TaskId: TaskId,
+                WorkflowTemplateId: WorkflowTemplateId,
+                WorkflowInstanceId: WorkflowInstanceId,
+                TaskTemplateId: TaskTemplateId,
                 TaskInstanceId: TaskInstanceId,
                 PreviousStatus: previousStatus,
                 CurrentStatus: currentStatus,

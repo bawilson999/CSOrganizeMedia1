@@ -6,11 +6,11 @@ internal abstract class ExecutionStateCore
     private ExecutionOutcome _executionOutcome;
     private ExecutionFailureKind _failureKind;
 
-    protected ExecutionStateCore(WorkflowId workflowId)
+    protected ExecutionStateCore(WorkflowInstanceId workflowInstanceId)
     {
         DateTime createdTimestamp = DateTime.UtcNow;
 
-        WorkflowId = workflowId;
+        WorkflowInstanceId = workflowInstanceId;
         _executionPhase = ExecutionPhase.NotStarted;
         _executionOutcome = ExecutionOutcome.Pending;
         _failureKind = ExecutionFailureKind.None;
@@ -25,7 +25,9 @@ internal abstract class ExecutionStateCore
         FinishedTimestamp = null;
     }
 
-    public WorkflowId WorkflowId { get; init; }
+    public WorkflowTemplateId WorkflowTemplateId => WorkflowInstanceId.WorkflowTemplateId;
+
+    public WorkflowInstanceId WorkflowInstanceId { get; init; }
 
     public ExecutionPhase ExecutionPhase
     {

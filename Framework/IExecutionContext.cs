@@ -2,11 +2,15 @@ namespace OrganizeMedia.Framework;
 
 public interface IExecutionContext
 {
-    WorkflowId WorkflowId { get; }
+    WorkflowTemplateId WorkflowTemplateId { get; }
 
-    TaskId TaskId { get; }
+    WorkflowInstanceId WorkflowInstanceId { get; }
+
+    TaskTemplateId TaskTemplateId { get; }
 
     TaskInstanceId TaskInstanceId { get; }
+
+    TaskInstanceId? SpawnedByTaskInstanceId { get; }
 
     TaskSpecification TaskSpecification { get; }
 

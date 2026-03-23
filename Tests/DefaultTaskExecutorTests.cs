@@ -9,7 +9,7 @@ public class DefaultTaskExecutorTests
     {
         DefaultTaskExecutor executor = new DefaultTaskExecutor();
         IExecutionContext executionContext = new FakeExecutionContext(
-            new TaskSpecification(new TaskId("A"), new TaskType("ScanDirectory")));
+            new TaskSpecification(new TaskTemplateId("A"), new TaskType("ScanDirectory")));
 
         TaskExecutionResult result = executor.Execute(executionContext);
 
@@ -23,7 +23,7 @@ public class DefaultTaskExecutorTests
         DefaultTaskExecutor executor = new DefaultTaskExecutor();
         IExecutionContext executionContext = new FakeExecutionContext(
             new TaskSpecification(
-                TaskId: new TaskId("A"),
+                TaskTemplateId: new TaskTemplateId("A"),
                 TaskType: new TaskType("ScanDirectory"),
                 InputType: new InputType("application/json"),
                 InputJson: "{ \"path\": \"c:/media\" }"));
@@ -42,7 +42,7 @@ public class DefaultTaskExecutorTests
         DefaultTaskExecutor executor = new DefaultTaskExecutor();
         IExecutionContext executionContext = new FakeExecutionContext(
             new TaskSpecification(
-                TaskId: new TaskId("A"),
+                TaskTemplateId: new TaskTemplateId("A"),
                 TaskType: new TaskType("ScanDirectory"),
                 InputJson: "{ \"path\": \"c:/media\" }"));
 
@@ -55,19 +55,24 @@ public class DefaultTaskExecutorTests
     {
         public FakeExecutionContext(TaskSpecification taskSpecification)
         {
-            WorkflowId = new WorkflowId("W0");
-            TaskId = taskSpecification.TaskId;
-            TaskInstanceId = new TaskInstanceId(taskSpecification.TaskId, 1);
+            WorkflowTemplateId = new WorkflowTemplateId("W0");
+            WorkflowInstanceId = new WorkflowInstanceId(WorkflowTemplateId, 1);
+            TaskTemplateId = taskSpecification.TaskTemplateId;
+            TaskInstanceId = new TaskInstanceId(taskSpecification.TaskTemplateId, 1);
             TaskSpecification = taskSpecification;
             DependencyStatuses = new Dictionary<TaskInstanceId, TaskStatus>();
             DependencyOutputs = new Dictionary<TaskInstanceId, ExecutionOutput?>();
         }
 
-        public WorkflowId WorkflowId { get; }
+        public WorkflowTemplateId WorkflowTemplateId { get; }
 
-        public TaskId TaskId { get; }
+        public WorkflowInstanceId WorkflowInstanceId { get; }
+
+        public TaskTemplateId TaskTemplateId { get; }
 
         public TaskInstanceId TaskInstanceId { get; }
+
+        public TaskInstanceId? SpawnedByTaskInstanceId { get; }
 
         public TaskSpecification TaskSpecification { get; }
 

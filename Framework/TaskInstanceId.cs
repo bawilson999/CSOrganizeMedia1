@@ -1,9 +1,9 @@
 namespace OrganizeMedia.Framework;
 
-public readonly record struct TaskInstanceId(TaskId TemplateTaskId, int InstanceNumber)
+public readonly record struct TaskInstanceId(TaskTemplateId TaskTemplateId, int InstanceNumber)
 {
     public override string ToString()
     {
-        return $"{TemplateTaskId}/{InstanceNumber}";
+        return $"{TaskTemplateId}/{InstanceNumber}";
     }
 }

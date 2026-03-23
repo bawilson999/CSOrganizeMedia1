@@ -1,7 +1,8 @@
 namespace OrganizeMedia.Framework;
 
 public record WorkflowTransitionEvent(
-    WorkflowId WorkflowId,
+    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowInstanceId WorkflowInstanceId,
     WorkflowStatus PreviousStatus,
     WorkflowStatus CurrentStatus,
     DateTime Timestamp);

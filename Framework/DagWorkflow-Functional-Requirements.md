@@ -88,27 +88,32 @@ Rationale:
 
 The system shall represent workflow and task identity and task metadata labels using value objects rather than raw strings:
 
-- `WorkflowId`
-- `TaskId`
+- `WorkflowTemplateId`
+- `WorkflowInstanceId`
+- `TaskTemplateId`
 - `TaskType`
 - `InputType`
+
+The system shall expose task cardinality as a public consumer-facing concept through `TaskCardinality`.
+
+The system shall treat `TaskTemplateId` as the template-scoped task identifier value object.
 
 Implications:
 
 - consumer code must provide explicit construction from `string`
 - consumer code may rely on string conversion when reading values back
 
-### FR-003 Workflow Id Validation
+### FR-003 Workflow Template Id Validation
 
-The system shall reject a workflow specification whose `WorkflowId` is empty or whitespace.
+The system shall reject a workflow specification whose `WorkflowTemplateId` is empty or whitespace.
 
 Expected outcome:
 
 - validation fails before execution starts
 
-### FR-004 Task Id Validation
+### FR-004 Task Template Id Validation
 
-The system shall reject a task specification whose `TaskId` is empty or whitespace.
+The system shall reject a task specification whose `TaskTemplateId` is empty or whitespace.
 
 Expected outcome:
 
@@ -387,8 +392,11 @@ The system shall execute task-specific work through a consumer-implemented `ITas
 
 The system shall provide the executor with an `IExecutionContext` containing:
 
-- `WorkflowId`
-- `TaskId`
+- `WorkflowTemplateId`
+- `WorkflowInstanceId`
+- `TaskTemplateId`
+- `TaskInstanceId`
+- `SpawnedByTaskInstanceId`
 - `TaskSpecification`
 - `DependencyStatuses`
 - `DependencyOutputs`
@@ -397,7 +405,7 @@ The system shall provide the executor with an `IExecutionContext` containing:
 
 The system shall expose dependency outputs as nullable values:
 
-- `IReadOnlyDictionary<TaskId, ExecutionOutput?>`
+- `IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?>`
 
 Rationale:
 
@@ -443,7 +451,9 @@ The system shall allow success results to carry:
 
 - optional output
 - optional spawned tasks
+- optional spawned task templates
 - optional added dependencies
+- optional instance-targeted added dependencies
 
 ### FR-048 Canceled Results
 
@@ -518,21 +528,29 @@ Expected failure meaning:
 
 The system shall allow a succeeded task result to create additional tasks at runtime.
 
+The preferred consumer-facing path shall allow runtime instance creation from zero-to-many templates through `TaskTemplateSpawn`.
+
 ### FR-061 Spawned Task Validation
 
 The system shall validate each spawned task as a normal `TaskSpecification` before adding it to the runtime graph.
 
+The system shall also validate each runtime instance created from a template spawn after applying template defaults and spawn-supplied input overrides.
+
 ### FR-062 Spawn Provenance
 
-The system shall populate `SpawnedByTaskId` with the current task id when a spawned task omits it.
+The system shall record the current task instance as runtime provenance for spawned task instances.
 
 ### FR-063 Dynamic Dependency Addition
 
 The system shall allow a succeeded task result to add dependencies at runtime.
 
+The system shall support runtime dependency materialization against concrete task instances, including newly spawned instances referenced through per-result spawn keys.
+
 ### FR-064 Dynamic Join Blocking
 
 The system shall allow a succeeded task result to express dynamic joins by adding ordinary runtime dependencies to a join task.
+
+This shall include the case where a zero-to-many template produces `N` runtime instances and a singleton task instance joins on all `N` materialized predecessors.
 
 ### FR-065 Dynamic Dependency Target Restriction
 

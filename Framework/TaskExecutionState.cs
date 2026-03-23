@@ -2,18 +2,25 @@ namespace OrganizeMedia.Framework;
 
 internal sealed class TaskExecutionState : ExecutionStateCore
 {
-    internal TaskExecutionState(WorkflowId workflowId, TaskId taskId, TaskInstanceId taskInstanceId)
-        : base(workflowId)
+    internal TaskExecutionState(
+        WorkflowInstanceId workflowInstanceId,
+        TaskTemplateId taskTemplateId,
+        TaskInstanceId taskInstanceId,
+        TaskInstanceId? spawnedByTaskInstanceId = null)
+        : base(workflowInstanceId)
     {
-        TaskId = taskId;
+        TaskTemplateId = taskTemplateId;
         TaskInstanceId = taskInstanceId;
+        SpawnedByTaskInstanceId = spawnedByTaskInstanceId;
         TotalSteps = 1;
         CompletedSteps = 0;
     }
 
-    public TaskId TaskId { get; init; }
+    public TaskTemplateId TaskTemplateId { get; init; }
 
     public TaskInstanceId TaskInstanceId { get; init; }
+
+    public TaskInstanceId? SpawnedByTaskInstanceId { get; init; }
 
     public int TotalSteps { get; internal set; }
 
@@ -22,8 +29,9 @@ internal sealed class TaskExecutionState : ExecutionStateCore
     internal TaskStatus ToStatus()
     {
         return new TaskStatus(
-            WorkflowId: WorkflowId,
-            TaskId: TaskId,
+            WorkflowTemplateId: WorkflowTemplateId,
+            WorkflowInstanceId: WorkflowInstanceId,
+            TaskTemplateId: TaskTemplateId,
             TaskInstanceId: TaskInstanceId,
             ExecutionPhase: ExecutionPhase,
             ExecutionOutcome: ExecutionOutcome,
@@ -38,6 +46,7 @@ internal sealed class TaskExecutionState : ExecutionStateCore
             QueuedTimestamp: QueuedTimestamp,
             ReadyToRunTimestamp: ReadyToRunTimestamp,
             RunningTimestamp: RunningTimestamp,
-            FinishedTimestamp: FinishedTimestamp);
+            FinishedTimestamp: FinishedTimestamp,
+            SpawnedByTaskInstanceId: SpawnedByTaskInstanceId);
     }
 }

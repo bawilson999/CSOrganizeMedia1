@@ -11,16 +11,16 @@ internal static class WorkflowExamples
 
     private static Workflow FromAdjacencyArray(string workflowIdString, int[][] adjacencyArray)
     {
-        WorkflowId workflowId = new WorkflowId(workflowIdString);
+        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId(workflowIdString);
         List<TaskSpecification> taskSpecifications = new List<TaskSpecification>();
         List<TaskDependencySpecification> dependencySpecifications = new List<TaskDependencySpecification>();
 
         for (int i = 0; i < adjacencyArray.Length; i++)
         {
-            TaskId taskId = new TaskId("T" + i.ToString());
+            TaskTemplateId taskTemplateId = new TaskTemplateId("T" + i.ToString());
             taskSpecifications.Add(
                 new TaskSpecification(
-                    TaskId: taskId,
+                    TaskTemplateId: taskTemplateId,
                     TaskType: new TaskType("StaticTask"),
                     InputType: new InputType("application/json"),
                     InputJson: $"{{\"taskIndex\":{i}}}"));
@@ -35,13 +35,13 @@ internal static class WorkflowExamples
                 int adjacentIndex = adjacentTaskIndices[j];
                 dependencySpecifications.Add(
                     new TaskDependencySpecification(
-                        PrerequisiteTaskId: new TaskId("T" + i.ToString()),
-                        DependentTaskId: new TaskId("T" + adjacentIndex.ToString())));
+                        PrerequisiteTaskTemplateId: new TaskTemplateId("T" + i.ToString()),
+                        DependentTaskTemplateId: new TaskTemplateId("T" + adjacentIndex.ToString())));
             }
         }
 
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: workflowId,
+            WorkflowTemplateId: workflowTemplateId,
             Tasks: taskSpecifications,
             Dependencies: dependencySpecifications);
 

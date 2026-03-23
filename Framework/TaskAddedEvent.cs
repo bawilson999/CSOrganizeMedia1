@@ -1,7 +1,8 @@
 namespace OrganizeMedia.Framework;
 
 public record TaskAddedEvent(
-    WorkflowId WorkflowId,
-    TaskId TaskId,
+    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskTemplateId TaskTemplateId,
     TaskInstanceId TaskInstanceId,
     DateTime Timestamp);

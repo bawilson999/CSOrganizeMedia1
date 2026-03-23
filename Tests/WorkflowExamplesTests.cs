@@ -32,16 +32,16 @@ public class WorkflowExamplesTests
     public void RunToCompletion_DynamicSpawnAndJoin_ExecutesJoinAfterSpawnedTasks()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId("Mp4Workflow"),
+            WorkflowTemplateId: new WorkflowTemplateId("Mp4Workflow"),
             Tasks:
             [
                 new TaskSpecification(
-                    TaskId: new TaskId("A"),
+                    TaskTemplateId: new TaskTemplateId("A"),
                     TaskType: new TaskType("ScanMp4Directory"),
                     InputType: new InputType("application/json"),
                     InputJson: "{ \"path\": \"c:/media\" }"),
                 new TaskSpecification(
-                    TaskId: new TaskId("C"),
+                    TaskTemplateId: new TaskTemplateId("C"),
                     TaskType: new TaskType("AggregateMp4Results"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>(),
@@ -54,26 +54,26 @@ public class WorkflowExamplesTests
 
         Assert.Equal(ExecutionOutcome.Succeeded, workflow.Status.ExecutionOutcome);
         Assert.Equal(["A", "B-1", "B-2", "B-3", "C"], taskExecutor.ExecutedTaskIds);
-        Assert.Equal(new TaskId("A"), taskExecutor.SpawnedByTaskIds["B-1"]);
-        Assert.Equal(new TaskId("A"), taskExecutor.SpawnedByTaskIds["B-2"]);
-        Assert.Equal(new TaskId("A"), taskExecutor.SpawnedByTaskIds["B-3"]);
+        Assert.Equal(new TaskInstanceId(new TaskTemplateId("A"), 1), taskExecutor.SpawnedByTaskInstanceIds["B-1"]);
+        Assert.Equal(new TaskInstanceId(new TaskTemplateId("A"), 1), taskExecutor.SpawnedByTaskInstanceIds["B-2"]);
+        Assert.Equal(new TaskInstanceId(new TaskTemplateId("A"), 1), taskExecutor.SpawnedByTaskInstanceIds["B-3"]);
         Assert.Equal(["B-1/1", "B-2/1", "B-3/1"], taskExecutor.AggregatorDependencyTaskIds);
         Assert.Equal(["processed:a.mp4", "processed:b.mp4", "processed:c.mp4"], taskExecutor.AggregatorDependencyOutputValues);
         Assert.Equal(5, workflow.Status.TaskStatuses.Count);
         Assert.Equal(
             ExecutionOutcome.Succeeded,
-            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskId("C"), 1)].ExecutionOutcome);
+            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("C"), 1)].ExecutionOutcome);
     }
 
     [Fact]
     public void RunToCompletion_SpawnedTasksWithSameTemplateId_GetDistinctInstanceIds()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId("TemplateInstanceWorkflow"),
+            WorkflowTemplateId: new WorkflowTemplateId("TemplateInstanceWorkflow"),
             Tasks:
             [
                 new TaskSpecification(
-                    TaskId: new TaskId("A"),
+                    TaskTemplateId: new TaskTemplateId("A"),
                     TaskType: new TaskType("DiscoverFiles"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>());
@@ -87,7 +87,7 @@ public class WorkflowExamplesTests
         Assert.Equal(["A", "B", "B"], taskExecutor.ExecutedTaskIds);
 
         TaskStatus[] repeatedTaskStatuses = workflow.Status.TaskStatuses.Values
-            .Where(status => status.TaskId == new TaskId("B"))
+            .Where(status => status.TaskTemplateId == new TaskTemplateId("B"))
             .OrderBy(status => status.TaskInstanceId.InstanceNumber)
             .ToArray();
 
@@ -106,27 +106,27 @@ public class WorkflowExamplesTests
 
         public TaskExecutionResult Execute(IExecutionContext executionContext)
         {
-            ExecutedTaskIds.Add(executionContext.TaskId.Value);
+            ExecutedTaskIds.Add(executionContext.TaskTemplateId.Value);
 
-            return executionContext.TaskId.Value switch
+            return executionContext.TaskTemplateId.Value switch
             {
                 "A" => TaskExecutionResult.Succeeded(
                     spawnedTasks:
                     [
                         new TaskSpecification(
-                            TaskId: new TaskId("B"),
+                            TaskTemplateId: new TaskTemplateId("B"),
                             TaskType: new TaskType("ExtractFileMetadata"),
                             InputType: new InputType("application/json"),
                             InputJson: "{ \"file\": \"a.mp4\" }"),
                         new TaskSpecification(
-                            TaskId: new TaskId("B"),
+                            TaskTemplateId: new TaskTemplateId("B"),
                             TaskType: new TaskType("ExtractFileMetadata"),
                             InputType: new InputType("application/json"),
                             InputJson: "{ \"file\": \"b.mp4\" }")
                     ]),
                 "B" => TaskExecutionResult.Succeeded(
                     new TextExecutionOutput(executionContext.TaskSpecification.InputJson!)),
-                _ => throw new InvalidOperationException($"Unexpected task {executionContext.TaskId}.")
+                _ => throw new InvalidOperationException($"Unexpected task {executionContext.TaskTemplateId}.")
             };
         }
     }
@@ -135,31 +135,31 @@ public class WorkflowExamplesTests
     public void RunToCompletion_MetadataReportTemplates_CreateRuntimeInstanceGraph()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowId: new WorkflowId("MetadataReport"),
+            WorkflowTemplateId: new WorkflowTemplateId("MetadataReport"),
             Tasks:
             [
                 new TaskSpecification(
-                    TaskId: new TaskId("DiscoverFiles"),
+                    TaskTemplateId: new TaskTemplateId("DiscoverFiles"),
                     TaskType: new TaskType("DiscoverFiles"),
                     InputType: new InputType("application/json"),
                     InputJson: "{ \"root\": \"Z:/Remotefiles\", \"pattern\": \"*.mp4\", \"searchOption\": \"Recursive\" }"),
                 new TaskSpecification(
-                    TaskId: new TaskId("ExtractFileMetadata"),
+                    TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
                     TaskType: new TaskType("ExtractFileMetadata"),
-                    InitialInstanceCount: 0),
+                    Cardinality: TaskCardinality.ZeroToMany),
                 new TaskSpecification(
-                    TaskId: new TaskId("SaveFileMetadata"),
+                    TaskTemplateId: new TaskTemplateId("SaveFileMetadata"),
                     TaskType: new TaskType("SaveFileMetadata"),
-                    InitialInstanceCount: 0),
+                    Cardinality: TaskCardinality.ZeroToMany),
                 new TaskSpecification(
-                    TaskId: new TaskId("GenerateMetadataReport"),
+                    TaskTemplateId: new TaskTemplateId("GenerateMetadataReport"),
                     TaskType: new TaskType("GenerateMetadataReport"))
             ],
             Dependencies:
             [
-                new TaskDependencySpecification(new TaskId("DiscoverFiles"), new TaskId("ExtractFileMetadata")),
-                new TaskDependencySpecification(new TaskId("ExtractFileMetadata"), new TaskId("SaveFileMetadata")),
-                new TaskDependencySpecification(new TaskId("ExtractFileMetadata"), new TaskId("GenerateMetadataReport"))
+                new TaskDependencySpecification(new TaskTemplateId("DiscoverFiles"), new TaskTemplateId("ExtractFileMetadata")),
+                new TaskDependencySpecification(new TaskTemplateId("ExtractFileMetadata"), new TaskTemplateId("SaveFileMetadata")),
+                new TaskDependencySpecification(new TaskTemplateId("ExtractFileMetadata"), new TaskTemplateId("GenerateMetadataReport"))
             ],
             MaxConcurrency: 6);
 
@@ -169,12 +169,12 @@ public class WorkflowExamplesTests
         workflow.RunToCompletion(taskExecutor);
 
         Assert.Equal(ExecutionOutcome.Succeeded, workflow.Status.ExecutionOutcome);
-        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskId == new TaskId("DiscoverFiles"));
-        Assert.Equal(4, workflow.Status.TaskStatuses.Values.Count(status => status.TaskId == new TaskId("ExtractFileMetadata")));
-        Assert.Equal(4, workflow.Status.TaskStatuses.Values.Count(status => status.TaskId == new TaskId("SaveFileMetadata")));
-        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskId == new TaskId("GenerateMetadataReport"));
+        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskTemplateId == new TaskTemplateId("DiscoverFiles"));
+        Assert.Equal(4, workflow.Status.TaskStatuses.Values.Count(status => status.TaskTemplateId == new TaskTemplateId("ExtractFileMetadata")));
+        Assert.Equal(4, workflow.Status.TaskStatuses.Values.Count(status => status.TaskTemplateId == new TaskTemplateId("SaveFileMetadata")));
+        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskTemplateId == new TaskTemplateId("GenerateMetadataReport"));
 
-        TaskStatus reportStatus = workflow.Status.TaskStatuses[new TaskInstanceId(new TaskId("GenerateMetadataReport"), 1)];
+        TaskStatus reportStatus = workflow.Status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("GenerateMetadataReport"), 1)];
         string reportJson = Assert.IsType<TextExecutionOutput>(reportStatus.Output).Value;
         Assert.Contains("\"FileCount\":4", reportJson, StringComparison.Ordinal);
         Assert.Contains("\"TotalFileSize\":3160887", reportJson, StringComparison.Ordinal);
@@ -201,7 +201,7 @@ public class WorkflowExamplesTests
 
         public TaskExecutionResult Execute(IExecutionContext executionContext)
         {
-            return executionContext.TaskId.Value switch
+            return executionContext.TaskTemplateId.Value switch
             {
                 "DiscoverFiles" => DiscoverFiles(executionContext),
                 "ExtractFileMetadata" => ExtractFileMetadata(executionContext),
@@ -216,7 +216,7 @@ public class WorkflowExamplesTests
             TaskTemplateSpawn[] extractSpawns = MetadataRows
                 .Select((row, index) => new TaskTemplateSpawn(
                     SpawnKey: $"extract-{index + 1}",
-                    TemplateTaskId: new TaskId("ExtractFileMetadata"),
+                    TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
                     InputType: new InputType("application/json"),
                     InputJson: $"{{ \"filePath\": \"{row.FilePath}\" }}"))
                 .ToArray();
@@ -229,7 +229,7 @@ public class WorkflowExamplesTests
                         Dependent: TaskNodeReference.SpawnedTask(spawn.SpawnKey)),
                     new TaskInstanceDependency(
                         Prerequisite: TaskNodeReference.SpawnedTask(spawn.SpawnKey),
-                        Dependent: TaskNodeReference.TemplateTask(new TaskId("GenerateMetadataReport")))
+                        Dependent: TaskNodeReference.TemplateTask(new TaskTemplateId("GenerateMetadataReport")))
                 })
                 .SelectMany(pair => pair)
                 .ToArray();
@@ -253,7 +253,7 @@ public class WorkflowExamplesTests
 
             TaskTemplateSpawn saveSpawn = new TaskTemplateSpawn(
                 SpawnKey: $"save-{executionContext.TaskInstanceId.InstanceNumber}",
-                TemplateTaskId: new TaskId("SaveFileMetadata"),
+                TaskTemplateId: new TaskTemplateId("SaveFileMetadata"),
                 InputType: new InputType("application/json"),
                 InputJson: metadataJson);
 
