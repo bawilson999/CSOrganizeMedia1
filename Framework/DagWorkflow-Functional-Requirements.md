@@ -252,10 +252,11 @@ The system shall model workflow and task state using the following orthogonal ax
 The system shall support the following lifecycle phases for tasks and workflows:
 
 - `NotStarted`
-- `ReadyToRun`
 - `Queued`
+- `ReadyToRun`
 - `Running`
 - `Finished`
+- `Unknown`
 
 ### FR-024 Execution Outcomes
 
@@ -265,6 +266,7 @@ The system shall support the following outcomes for tasks and workflows:
 - `Succeeded`
 - `Canceled`
 - `Failed`
+- `Unknown`
 
 ### FR-025 Failure Kinds
 
@@ -521,6 +523,16 @@ Expected failure meaning:
 
 - the graph may be cyclic
 - the graph may be blocked by unsatisfied dependencies
+
+### FR-059A Execution Exception Failure Semantics
+
+The system shall treat exceptions thrown during task execution or graph-change application as execution failures.
+
+Required behavior:
+
+- if the current task is still `Running`, the system shall mark that task failed with `ExecutionFailureKind.Unknown`
+- if the workflow is still `Running`, the system shall mark the workflow failed with `ExecutionFailureKind.Unknown`
+- after updating statuses, the system shall rethrow the original exception to the caller
 
 ## Dynamic Workflow Execution
 

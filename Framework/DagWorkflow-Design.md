@@ -129,16 +129,18 @@ DagWorkflow currently uses four orthogonal status axes.
 Lifecycle phase of a task or workflow:
 
 - `NotStarted`
-- `ReadyToRun`
 - `Queued`
+- `ReadyToRun`
 - `Running`
 - `Finished`
+- `Unknown`
 
 Intended semantics:
 
 - `ReadyToRun` means eligible for scheduling.
 - `Queued` means admitted to an executor queue.
 - `Running` means dequeued and actively executing.
+- `Unknown = -1` is a sentinel value used for unsupported or unrecognized phase values.
 
 ### ExecutionOutcome
 
@@ -148,6 +150,9 @@ Terminal or effective result:
 - `Succeeded`
 - `Canceled`
 - `Failed`
+- `Unknown`
+
+`Unknown = -1` is a sentinel value used for unsupported or unrecognized outcome values.
 
 ### ExecutionFailureKind
 
@@ -157,6 +162,8 @@ Classification for handled failures:
 - `Transient`
 - `Permanent`
 - `Unknown`
+
+`Unknown = -1` is a sentinel value used for unsupported or unrecognized failure classifications.
 
 ### ExecutionRecoverability
 
@@ -300,6 +307,8 @@ Observers receive notifications for:
 
 This is the mechanism now used for console and text output. The earlier graph-display-oriented console snapshot approach has been removed in favor of state-transition observability.
 
+Current implementation detail: observer callbacks are best-effort. The runtime catches and suppresses exceptions thrown by observer implementations so that observability failures do not change workflow execution behavior.
+
 ### Built-In Observer And Formatters
 
 The framework currently ships with:
@@ -323,33 +332,82 @@ public readonly record struct WorkflowInstanceId(WorkflowSpecificationId Workflo
 
 public readonly record struct TaskSpecificationId(string Value);
 
+public readonly record struct TaskInstanceId(TaskSpecificationId TaskSpecificationId, int InstanceNumber);
+
 public readonly record struct TaskType(string Value);
 
 public readonly record struct InputType(string Value);
+
+public enum TaskCardinality
+{
+    Singleton,
+    ZeroToMany
+}
 ```
 
 ### Specifications
 
 ```csharp
-public record WorkflowSpecification(
-    WorkflowSpecificationId WorkflowSpecificationId,
-    IReadOnlyCollection<TaskSpecification> Tasks,
-    IReadOnlyCollection<TaskDependencySpecification> Dependencies,
-    int? MaxConcurrency = null);
+public sealed record WorkflowSpecification
+{
+    public WorkflowSpecification(
+        WorkflowSpecificationId WorkflowSpecificationId,
+        IReadOnlyCollection<TaskSpecification> Tasks,
+        IReadOnlyCollection<TaskDependencySpecification> Dependencies,
+        int? MaxConcurrency = null);
 
-public record TaskSpecification(
-    TaskSpecificationId TaskSpecificationId,
-    TaskType TaskType,
-    InputType? InputType = null,
-    string? InputJson = null,
-    TaskCardinality Cardinality = TaskCardinality.Singleton);
+    public WorkflowSpecificationId WorkflowSpecificationId { get; }
+    public IReadOnlyCollection<TaskSpecification> Tasks { get; }
+    public IReadOnlyCollection<TaskDependencySpecification> Dependencies { get; }
+    public int? MaxConcurrency { get; }
+}
+
+public sealed record TaskSpecification
+{
+    public TaskSpecification(
+        TaskSpecificationId TaskSpecificationId,
+        TaskType TaskType,
+        InputType? InputType = null,
+        string? InputJson = null,
+        TaskCardinality Cardinality = TaskCardinality.Singleton);
+
+    public TaskSpecificationId TaskSpecificationId { get; }
+    public TaskType TaskType { get; }
+    public InputType? InputType { get; }
+    public string? InputJson { get; }
+    public TaskCardinality Cardinality { get; }
+    public int InitialInstanceCount { get; }
+}
 
 public readonly record struct TaskDependencySpecification(
     TaskSpecificationId PrerequisiteTaskSpecificationId,
     TaskSpecificationId DependentTaskSpecificationId);
+
+public sealed record TaskSpecificationSpawn(
+    string SpawnKey,
+    TaskSpecificationId TaskSpecificationId,
+    InputType? InputType = null,
+    string? InputJson = null);
+
+public sealed record TaskNodeReference
+{
+    public TaskSpecificationId? TaskSpecificationId { get; }
+    public TaskInstanceId? TaskInstanceId { get; }
+    public string? SpawnKey { get; }
+
+    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId);
+    public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId);
+    public static TaskNodeReference SpawnedTask(string spawnKey);
+}
+
+public sealed record TaskInstanceDependency(
+    TaskNodeReference Prerequisite,
+    TaskNodeReference Dependent);
 ```
 
 The implemented public surface uses `TaskSpecificationId`, `PrerequisiteTaskSpecificationId`, and `DependentTaskSpecificationId` as the final specification-identity names, distinct from runtime `TaskInstanceId` values.
+
+Both specification types are immutable. `WorkflowSpecification` snapshots the task and dependency collections it receives, and runtime specialization creates a new `TaskSpecification` rather than mutating an existing one.
 
 ### Execution Boundary
 
@@ -366,8 +424,6 @@ public interface IExecutionContext
     IReadOnlyDictionary<TaskInstanceId, ExecutionOutput?> DependencyOutputs { get; }
 }
 
-
-`TaskSpecificationId` and `TaskInstanceId` intentionally model different concepts at this boundary: specification identity vs. runtime instance identity.
 public interface ITaskExecutor
 {
     TaskExecutionResult Execute(IExecutionContext executionContext);
@@ -375,7 +431,9 @@ public interface ITaskExecutor
 
 public sealed record WorkflowGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
-    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies);
+    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
+    IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
+    IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies);
 
 public sealed record TaskExecutionResult
 {
@@ -389,7 +447,9 @@ public sealed record TaskExecutionResult
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null);
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
+        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications = null,
+        IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies = null);
 
     public static TaskExecutionResult Canceled(
         ExecutionOutput? output = null,
@@ -404,6 +464,8 @@ public sealed record TaskExecutionResult
 }
 ```
 
+`TaskSpecificationId` and `TaskInstanceId` intentionally model different concepts at this boundary: specification identity vs. runtime instance identity.
+
 Implementation notes for `TaskExecutionResult`:
 
 - success results may carry graph changes
@@ -411,10 +473,41 @@ Implementation notes for `TaskExecutionResult`:
 - succeeded results may not carry a failure kind or explicit recoverability
 - failed results must carry a non-`None` `ExecutionFailureKind`
 - canceled and failed results must use terminal recoverability values when one is specified
+- results without graph changes use `WorkflowGraphChanges.None`
 
 ### Observability
 
 ```csharp
+public record WorkflowTransitionEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    WorkflowStatus PreviousStatus,
+    WorkflowStatus CurrentStatus,
+    DateTime Timestamp);
+
+public record TaskTransitionEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskSpecificationId TaskSpecificationId,
+    TaskInstanceId TaskInstanceId,
+    TaskStatus PreviousStatus,
+    TaskStatus CurrentStatus,
+    DateTime Timestamp);
+
+public record TaskAddedEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskSpecificationId TaskSpecificationId,
+    TaskInstanceId TaskInstanceId,
+    DateTime Timestamp);
+
+public record DependencyAddedEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskInstanceId PrerequisiteTaskInstanceId,
+    TaskInstanceId DependentTaskInstanceId,
+    DateTime Timestamp);
+
 public interface IWorkflowObserver
 {
     void OnTaskTransition(TaskTransitionEvent transitionEvent);
@@ -474,7 +567,8 @@ public record TaskStatus(
     DateTime? QueuedTimestamp = null,
     DateTime? ReadyToRunTimestamp = null,
     DateTime? RunningTimestamp = null,
-    DateTime? FinishedTimestamp = null);
+    DateTime? FinishedTimestamp = null,
+    TaskInstanceId? SpawnedByTaskInstanceId = null);
 
 public record WorkflowStatus(
     WorkflowSpecificationId WorkflowSpecificationId,
@@ -654,6 +748,12 @@ The standalone project should keep the current scheduler semantics and refine th
 5. Apply task result.
 6. Apply any graph changes.
 7. Re-scan the live graph for newly ready tasks.
+
+Current failure-handling behavior:
+
+- if task execution or graph application throws while a task is `Running`, the orchestrator marks that task failed with `ExecutionFailureKind.Unknown`
+- if the workflow is still `Running`, the orchestrator also marks the workflow failed with `ExecutionFailureKind.Unknown`
+- the original exception is then rethrown to the caller after status has been updated
 
 ### MaxConcurrency
 

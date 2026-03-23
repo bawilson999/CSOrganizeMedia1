@@ -63,25 +63,78 @@ The framework does not treat `TaskType` or `InputType` as enums. They are labels
 These types define what should run.
 
 ```csharp
-public record WorkflowSpecification(
-    WorkflowSpecificationId WorkflowSpecificationId,
-    IReadOnlyCollection<TaskSpecification> Tasks,
-    IReadOnlyCollection<TaskDependencySpecification> Dependencies,
-    int? MaxConcurrency = null);
+public sealed record WorkflowSpecification
+{
+    public WorkflowSpecification(
+        WorkflowSpecificationId WorkflowSpecificationId,
+        IReadOnlyCollection<TaskSpecification> Tasks,
+        IReadOnlyCollection<TaskDependencySpecification> Dependencies,
+        int? MaxConcurrency = null);
 
-public record TaskSpecification(
-    TaskSpecificationId TaskSpecificationId,
-    TaskType TaskType,
-    InputType? InputType = null,
-    string? InputJson = null,
-    TaskCardinality Cardinality = TaskCardinality.Singleton);
+    public WorkflowSpecificationId WorkflowSpecificationId { get; }
+    public IReadOnlyCollection<TaskSpecification> Tasks { get; }
+    public IReadOnlyCollection<TaskDependencySpecification> Dependencies { get; }
+    public int? MaxConcurrency { get; }
+}
+
+public sealed record TaskSpecification
+{
+    public TaskSpecification(
+        TaskSpecificationId TaskSpecificationId,
+        TaskType TaskType,
+        InputType? InputType = null,
+        string? InputJson = null,
+        TaskCardinality Cardinality = TaskCardinality.Singleton);
+
+    public TaskSpecificationId TaskSpecificationId { get; }
+    public TaskType TaskType { get; }
+    public InputType? InputType { get; }
+    public string? InputJson { get; }
+    public TaskCardinality Cardinality { get; }
+    public int InitialInstanceCount { get; }
+}
 
 public readonly record struct TaskDependencySpecification(
     TaskSpecificationId PrerequisiteTaskSpecificationId,
     TaskSpecificationId DependentTaskSpecificationId);
+
+public readonly record struct TaskInstanceId(
+    TaskSpecificationId TaskSpecificationId,
+    int InstanceNumber);
+
+public enum TaskCardinality
+{
+    Singleton,
+    ZeroToMany
+}
+
+public sealed record TaskSpecificationSpawn(
+    string SpawnKey,
+    TaskSpecificationId TaskSpecificationId,
+    InputType? InputType = null,
+    string? InputJson = null);
+
+public sealed record TaskNodeReference
+{
+    public TaskSpecificationId? TaskSpecificationId { get; }
+    public TaskInstanceId? TaskInstanceId { get; }
+    public string? SpawnKey { get; }
+
+    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId);
+    public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId);
+    public static TaskNodeReference SpawnedTask(string spawnKey);
+}
+
+public sealed record TaskInstanceDependency(
+    TaskNodeReference Prerequisite,
+    TaskNodeReference Dependent);
 ```
 
 These names are the final public specification-identity surface used throughout the framework.
+
+Both specification types are immutable. `WorkflowSpecification` snapshots the task and dependency collections it receives, and `TaskSpecification` exposes only get-only members.
+
+When the engine needs a specialized runtime task definition, it creates a new `TaskSpecification`; it does not mutate an existing specification instance.
 
 Important current validation rules:
 
@@ -308,6 +361,54 @@ Current enforced rules include:
 - canceled results cannot carry a failure kind
 - graph changes are only allowed on succeeded results
 - canceled and failed results must use terminal recoverability values when one is specified
+- results without graph changes use `WorkflowGraphChanges.None`
+
+### Graph Change Payload
+
+```csharp
+public sealed record WorkflowGraphChanges(
+    IReadOnlyCollection<TaskSpecification> SpawnedTasks,
+    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
+    IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
+    IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies)
+{
+    public static WorkflowGraphChanges None { get; }
+}
+```
+
+### Observer Event Payloads
+
+```csharp
+public record WorkflowTransitionEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    WorkflowStatus PreviousStatus,
+    WorkflowStatus CurrentStatus,
+    DateTime Timestamp);
+
+public record TaskTransitionEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskSpecificationId TaskSpecificationId,
+    TaskInstanceId TaskInstanceId,
+    TaskStatus PreviousStatus,
+    TaskStatus CurrentStatus,
+    DateTime Timestamp);
+
+public record TaskAddedEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskSpecificationId TaskSpecificationId,
+    TaskInstanceId TaskInstanceId,
+    DateTime Timestamp);
+
+public record DependencyAddedEvent(
+    WorkflowSpecificationId WorkflowSpecificationId,
+    WorkflowInstanceId WorkflowInstanceId,
+    TaskInstanceId PrerequisiteTaskInstanceId,
+    TaskInstanceId DependentTaskInstanceId,
+    DateTime Timestamp);
+```
 
 ## Observing Execution
 
