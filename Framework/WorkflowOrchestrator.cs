@@ -151,22 +151,10 @@ public class WorkflowOrchestrator
         switch (executionResult.ExecutionOutcome)
         {
             case ExecutionOutcome.Succeeded:
-                if (executionResult.FailureKind != ExecutionFailureKind.None)
-                {
-                    throw new InvalidOperationException(
-                        $"Succeeded task {task.TaskId} cannot carry failure kind {executionResult.FailureKind}.");
-                }
-
                 task.MarkSucceeded(executionResult.Output);
                 break;
 
             case ExecutionOutcome.Canceled:
-                if (executionResult.FailureKind != ExecutionFailureKind.None)
-                {
-                    throw new InvalidOperationException(
-                        $"Canceled task {task.TaskId} cannot carry failure kind {executionResult.FailureKind}.");
-                }
-
                 task.MarkCanceled(
                     output: executionResult.Output,
                     error: executionResult.Error,

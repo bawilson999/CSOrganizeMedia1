@@ -10,6 +10,8 @@ public sealed record TaskExecutionResult
         ExecutionRecoverability? recoverability = null,
         TaskRuntimeMutations runtimeMutations = null)
     {
+        Validate(executionOutcome, failureKind, recoverability, runtimeMutations);
+
         ExecutionOutcome = executionOutcome;
         FailureKind = failureKind;
         Output = output;
@@ -38,6 +40,82 @@ public sealed record TaskExecutionResult
 
     public IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications =>
         RuntimeMutations?.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
+
+    private static void Validate(
+        ExecutionOutcome executionOutcome,
+        ExecutionFailureKind failureKind,
+        ExecutionRecoverability? recoverability,
+        TaskRuntimeMutations runtimeMutations)
+    {
+        switch (executionOutcome)
+        {
+            case ExecutionOutcome.Succeeded:
+                if (failureKind != ExecutionFailureKind.None)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(failureKind),
+                        failureKind,
+                        "Succeeded task results cannot carry a failure kind.");
+                }
+
+                if (recoverability is not null)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(recoverability),
+                        recoverability,
+                        "Succeeded task results cannot carry an explicit recoverability value.");
+                }
+
+                break;
+
+            case ExecutionOutcome.Canceled:
+                if (failureKind != ExecutionFailureKind.None)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(failureKind),
+                        failureKind,
+                        "Canceled task results cannot carry a failure kind.");
+                }
+
+                ExecutionTransitionSupport.EnsureTerminalRecoverability(
+                    recoverability ?? ExecutionRecoverability.Retryable,
+                    nameof(recoverability),
+                    "Canceled task results must use a terminal recoverability value.");
+                break;
+
+            case ExecutionOutcome.Failed:
+                if (failureKind == ExecutionFailureKind.None)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(failureKind),
+                        failureKind,
+                        "Failed task results must use a transient, permanent, or unknown failure kind.");
+                }
+
+                if (recoverability is not null)
+                {
+                    ExecutionTransitionSupport.EnsureTerminalRecoverability(
+                        recoverability.Value,
+                        nameof(recoverability),
+                        "Failed task results must use a terminal recoverability value.");
+                }
+
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(executionOutcome),
+                    executionOutcome,
+                    "Task execution results must use a supported terminal outcome.");
+        }
+
+        if (executionOutcome != ExecutionOutcome.Succeeded && runtimeMutations is not null)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(runtimeMutations),
+                "Only succeeded task results can carry runtime mutations.");
+        }
+    }
 
     internal static TaskExecutionResult SucceededWithMutations(
         ExecutionOutput output = null,
@@ -81,14 +159,6 @@ public sealed record TaskExecutionResult
         ErrorInfo error = null,
         ExecutionRecoverability? recoverability = null)
     {
-        if (failureKind == ExecutionFailureKind.None)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(failureKind),
-                failureKind,
-                "Failed task results must use a transient, permanent, or unknown failure kind.");
-        }
-
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Failed,
             failureKind: failureKind,
