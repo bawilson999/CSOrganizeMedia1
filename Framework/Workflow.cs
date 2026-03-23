@@ -68,41 +68,14 @@ public class Workflow
         return $"/{WorkflowId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 
-    private static bool IsRestartRecoverability(ExecutionRecoverability recoverability)
-    {
-        return recoverability == ExecutionRecoverability.Retryable ||
-               recoverability == ExecutionRecoverability.Resumable;
-    }
-
-    private static bool IsTerminalRecoverability(ExecutionRecoverability recoverability)
-    {
-        return recoverability == ExecutionRecoverability.Retryable ||
-               recoverability == ExecutionRecoverability.Resumable ||
-               recoverability == ExecutionRecoverability.RequiresIntervention ||
-               recoverability == ExecutionRecoverability.NotRecoverable;
-    }
-
-    private void EnsurePhase(params ExecutionPhase[] allowedPhases)
-    {
-        if (allowedPhases.Contains(_executionState.ExecutionPhase))
-            return;
-
-        throw new InvalidOperationException(
-            $"Workflow {WorkflowId} cannot transition from {_executionState.ExecutionPhase} to the requested state.");
-    }
-
     public void MarkReadyToRun()
     {
         WorkflowStatus previousStatus = Status;
-        ExecutionPhase currentPhase = _executionState.ExecutionPhase;
-        ExecutionRecoverability currentRecoverability = _executionState.Recoverability;
-
-        if (currentPhase != ExecutionPhase.NotStarted &&
-            !(currentPhase == ExecutionPhase.Finished && IsRestartRecoverability(currentRecoverability)))
-        {
-            throw new InvalidOperationException(
-                $"Workflow {WorkflowId} can only become ready-to-run from NotStarted or a retryable finished state.");
-        }
+        ExecutionTransitionSupport.EnsureCanMarkReadyToRun(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            currentRecoverability: _executionState.Recoverability);
 
         _executionState.ExecutionOutcome = ExecutionOutcome.Pending;
         _executionState.FailureKind = ExecutionFailureKind.None;
@@ -115,7 +88,11 @@ public class Workflow
     public void MarkQueued()
     {
         WorkflowStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.ReadyToRun);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            ExecutionPhase.ReadyToRun);
         _executionState.ExecutionPhase = ExecutionPhase.Queued;
         NotifyTransition(previousStatus);
     }
@@ -123,7 +100,11 @@ public class Workflow
     public void MarkRunning()
     {
         WorkflowStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Queued);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            ExecutionPhase.Queued);
         _executionState.ExecutionPhase = ExecutionPhase.Running;
         NotifyTransition(previousStatus);
     }
@@ -131,7 +112,11 @@ public class Workflow
     public void MarkSucceeded(ExecutionOutput output = null)
     {
         WorkflowStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            ExecutionPhase.Running);
         _executionState.ExecutionPhase = ExecutionPhase.Finished;
         _executionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
         _executionState.FailureKind = ExecutionFailureKind.None;
@@ -146,15 +131,15 @@ public class Workflow
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         WorkflowStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
-
-        if (!IsTerminalRecoverability(recoverability))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(recoverability),
-                recoverability,
-                "Canceled workflows must use a terminal recoverability value.");
-        }
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsureTerminalRecoverability(
+            recoverability,
+            nameof(recoverability),
+            "Canceled workflows must use a terminal recoverability value.");
 
         _executionState.ExecutionPhase = ExecutionPhase.Finished;
         _executionState.ExecutionOutcome = ExecutionOutcome.Canceled;
@@ -172,29 +157,17 @@ public class Workflow
         ExecutionRecoverability? recoverability = null)
     {
         WorkflowStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Workflow",
+            subjectId: WorkflowId.Value,
+            currentPhase: _executionState.ExecutionPhase,
+            ExecutionPhase.Running);
 
-        if (failureKind == ExecutionFailureKind.None)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(failureKind),
-                failureKind,
-                "Failed workflows must use a transient, permanent, or unknown failure kind.");
-        }
-
-        ExecutionRecoverability effectiveRecoverability = recoverability ??
-            ExecutionRecoverabilityDefaults.From(
-            ExecutionPhase.Finished,
-            ExecutionOutcome.Failed,
-            failureKind);
-
-        if (!IsTerminalRecoverability(effectiveRecoverability))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(recoverability),
-                effectiveRecoverability,
-                "Failed workflows must use a terminal recoverability value.");
-        }
+        ExecutionRecoverability effectiveRecoverability = ExecutionTransitionSupport.ResolveFailureRecoverability(
+            failureKind,
+            recoverability,
+            invalidFailureKindMessage: "Failed workflows must use a transient, permanent, or unknown failure kind.",
+            invalidRecoverabilityMessage: "Failed workflows must use a terminal recoverability value.");
 
         _executionState.ExecutionPhase = ExecutionPhase.Finished;
         _executionState.ExecutionOutcome = ExecutionOutcome.Failed;
@@ -280,9 +253,7 @@ public class Workflow
 
     private static bool HasNotStartedExecution(Task task)
     {
-        return task.Status.ExecutionPhase == ExecutionPhase.NotStarted ||
-               task.Status.ExecutionPhase == ExecutionPhase.ReadyToRun ||
-               task.Status.ExecutionPhase == ExecutionPhase.Queued;
+        return ExecutionTransitionSupport.HasNotStartedExecution(task.Status.ExecutionPhase);
     }
 
     public void RuntimeAddFanIn(TaskFanInSpecification fanInSpecification, IReadOnlyCollection<TaskId> spawnedTaskIds)
@@ -318,11 +289,6 @@ public class Workflow
         NotifyFanInExpanded(fanInSpecification.JoinTaskId, prerequisiteTaskIds.ToArray());
     }
 
-    public IReadOnlyList<Task> TopologicalSort()
-    {
-        return _taskGraph.TopologicalSort();
-    }
-
     internal IReadOnlyCollection<Task> GetTasks()
     {
         return _taskGraph.GetTasks();
@@ -331,11 +297,6 @@ public class Workflow
     internal bool TryGetTask(TaskId taskId, out Task task)
     {
         return _tasksById.TryGetValue(taskId, out task);
-    }
-
-    internal IReadOnlyCollection<Task> GetAdjacencies(Task task)
-    {
-        return _taskGraph.GetAdjacencies(task);
     }
 
     internal IReadOnlyCollection<Task> GetDependencies(Task task)

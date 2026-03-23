@@ -1,17 +1,17 @@
 namespace OrganizeMedia.Framework;
 
-public class TaskGraph
+internal sealed class TaskGraph
 {
     private readonly Dictionary<Task, List<Task>> _adjacencyList;
     private readonly Dictionary<Task, List<Task>> _dependencyList;
 
-    public TaskGraph()
+    internal TaskGraph()
     {
         _adjacencyList = new Dictionary<Task, List<Task>>();
         _dependencyList = new Dictionary<Task, List<Task>>();
     }
 
-    public void AddTask(Task task)
+    internal void AddTask(Task task)
     {
         if (task is null)
             throw new ArgumentNullException(nameof(task));
@@ -25,7 +25,7 @@ public class TaskGraph
         _dependencyList.Add(task, new List<Task>());
     }
 
-    public void AddAdjacency(Task task, Task adjacentTask)
+    internal void AddAdjacency(Task task, Task adjacentTask)
     {
         if (task == adjacentTask)
         {
@@ -54,48 +54,14 @@ public class TaskGraph
         _dependencyList[adjacentTask].Add(task);
     }
 
-    public IReadOnlyCollection<Task> GetAdjacencies(Task task)
-    {
-        return _adjacencyList[task];
-    }
-
-    public IReadOnlyCollection<Task> GetTasks()
+    internal IReadOnlyCollection<Task> GetTasks()
     {
         return _adjacencyList.Keys.ToArray();
     }
 
-    public IReadOnlyCollection<Task> GetDependencies(Task task)
+    internal IReadOnlyCollection<Task> GetDependencies(Task task)
     {
         return _dependencyList[task];
-    }
-
-    public IReadOnlyList<Task> TopologicalSort()
-    {
-        Stack<Task> stack = new Stack<Task>();
-        HashSet<Task> visited = new HashSet<Task>();
-
-        foreach (Task task in _adjacencyList.Keys)
-        {
-            if (!visited.Contains(task))
-            {
-                FindTopologicalSort(task, visited, stack);
-            }
-        }
-
-        return stack.ToArray();
-    }
-
-    private void FindTopologicalSort(Task task, HashSet<Task> visited, Stack<Task> stack)
-    {
-        visited.Add(task);
-        foreach (Task adjacentTask in _adjacencyList[task])
-        {
-            if (!visited.Contains(adjacentTask))
-            {
-                FindTopologicalSort(adjacentTask, visited, stack);
-            }
-        }
-        stack.Push(task);
     }
 
     private bool HasPath(Task startTask, Task targetTask)

@@ -46,41 +46,15 @@ public class Task
         return $"/{WorkflowId}/{TaskId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 
-    private static bool IsRestartRecoverability(ExecutionRecoverability recoverability)
-    {
-        return recoverability == ExecutionRecoverability.Retryable ||
-               recoverability == ExecutionRecoverability.Resumable;
-    }
-
-    private static bool IsTerminalRecoverability(ExecutionRecoverability recoverability)
-    {
-        return recoverability == ExecutionRecoverability.Retryable ||
-               recoverability == ExecutionRecoverability.Resumable ||
-               recoverability == ExecutionRecoverability.RequiresIntervention ||
-               recoverability == ExecutionRecoverability.NotRecoverable;
-    }
-
-    private void EnsurePhase(params ExecutionPhase[] allowedPhases)
-    {
-        if (allowedPhases.Contains(ExecutionState.ExecutionPhase))
-            return;
-
-        throw new InvalidOperationException(
-            $"Task {TaskId} cannot transition from {ExecutionState.ExecutionPhase} to the requested state.");
-    }
-
     public void MarkReadyToRun()
     {
         TaskStatus previousStatus = Status;
-        ExecutionPhase currentPhase = ExecutionState.ExecutionPhase;
         ExecutionRecoverability currentRecoverability = ExecutionState.Recoverability;
-
-        if (currentPhase != ExecutionPhase.NotStarted &&
-            !(currentPhase == ExecutionPhase.Finished && IsRestartRecoverability(currentRecoverability)))
-        {
-            throw new InvalidOperationException(
-                $"Task {TaskId} can only become ready-to-run from NotStarted or a retryable finished state.");
-        }
+        ExecutionTransitionSupport.EnsureCanMarkReadyToRun(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            currentRecoverability: currentRecoverability);
 
         bool resetProgress = currentRecoverability != ExecutionRecoverability.Resumable;
 
@@ -99,7 +73,11 @@ public class Task
     public void MarkQueued()
     {
         TaskStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.ReadyToRun);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            ExecutionPhase.ReadyToRun);
         ExecutionState.ExecutionPhase = ExecutionPhase.Queued;
         NotifyTransition(previousStatus);
     }
@@ -107,7 +85,11 @@ public class Task
     public void MarkRunning()
     {
         TaskStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Queued);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            ExecutionPhase.Queued);
         ExecutionState.ExecutionPhase = ExecutionPhase.Running;
         NotifyTransition(previousStatus);
     }
@@ -115,7 +97,11 @@ public class Task
     public void MarkSucceeded(ExecutionOutput output = null)
     {
         TaskStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            ExecutionPhase.Running);
         ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
         ExecutionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
         ExecutionState.FailureKind = ExecutionFailureKind.None;
@@ -131,15 +117,15 @@ public class Task
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         TaskStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
-
-        if (!IsTerminalRecoverability(recoverability))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(recoverability),
-                recoverability,
-                "Canceled tasks must use a terminal recoverability value.");
-        }
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsureTerminalRecoverability(
+            recoverability,
+            nameof(recoverability),
+            "Canceled tasks must use a terminal recoverability value.");
 
         ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
         ExecutionState.ExecutionOutcome = ExecutionOutcome.Canceled;
@@ -157,29 +143,17 @@ public class Task
         ExecutionRecoverability? recoverability = null)
     {
         TaskStatus previousStatus = Status;
-        EnsurePhase(ExecutionPhase.Running);
+        ExecutionTransitionSupport.EnsurePhase(
+            subjectName: "Task",
+            subjectId: TaskId.Value,
+            currentPhase: ExecutionState.ExecutionPhase,
+            ExecutionPhase.Running);
 
-        if (failureKind == ExecutionFailureKind.None)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(failureKind),
-                failureKind,
-                "Failed tasks must use a transient, permanent, or unknown failure kind.");
-        }
-
-        ExecutionRecoverability effectiveRecoverability = recoverability ??
-            ExecutionRecoverabilityDefaults.From(
-            ExecutionPhase.Finished,
-            ExecutionOutcome.Failed,
-            failureKind);
-
-        if (!IsTerminalRecoverability(effectiveRecoverability))
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(recoverability),
-                effectiveRecoverability,
-                "Failed tasks must use a terminal recoverability value.");
-        }
+        ExecutionRecoverability effectiveRecoverability = ExecutionTransitionSupport.ResolveFailureRecoverability(
+            failureKind,
+            recoverability,
+            invalidFailureKindMessage: "Failed tasks must use a transient, permanent, or unknown failure kind.",
+            invalidRecoverabilityMessage: "Failed tasks must use a terminal recoverability value.");
 
         ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
         ExecutionState.ExecutionOutcome = ExecutionOutcome.Failed;
