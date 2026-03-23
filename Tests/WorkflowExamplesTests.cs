@@ -29,7 +29,7 @@ public class WorkflowExamplesTests
     }
 
     [Fact]
-    public void RunToCompletion_DynamicFanOutAndFanIn_ExecutesJoinAfterSpawnedTasks()
+    public void RunToCompletion_DynamicSpawnAndJoin_ExecutesJoinAfterSpawnedTasks()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
             WorkflowId: new WorkflowId("Mp4Workflow"),
@@ -48,7 +48,7 @@ public class WorkflowExamplesTests
             MaxConcurrency: 4);
 
         Workflow workflow = Workflow.FromSpecification(specification);
-        DynamicFanOutFakeTaskExecutor taskExecutor = new DynamicFanOutFakeTaskExecutor();
+        DynamicSpawnAndJoinFakeTaskExecutor taskExecutor = new DynamicSpawnAndJoinFakeTaskExecutor();
 
         workflow.RunToCompletion(taskExecutor);
 

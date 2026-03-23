@@ -56,7 +56,7 @@ public class WorkflowObserverTests
         Workflow workflow = Workflow.FromSpecification(specification);
         RecordingWorkflowObserver observer = new RecordingWorkflowObserver();
 
-        workflow.RunToCompletion(new DynamicFanOutFakeTaskExecutor(), observer);
+        workflow.RunToCompletion(new DynamicSpawnAndJoinFakeTaskExecutor(), observer);
 
         Assert.Equal(["B-1", "B-2", "B-3"], observer.TaskAddedEvents.Select(task => task.TaskId.Value));
         Assert.Equal(
@@ -64,9 +64,6 @@ public class WorkflowObserverTests
             observer.DependencyAddedEvents
                 .Select(dependency => $"{dependency.PrerequisiteTaskId.Value}->{dependency.DependentTaskId.Value}")
                 .OrderBy(value => value));
-        FanInExpandedEvent fanInEvent = Assert.Single(observer.FanInExpandedEvents);
-        Assert.Equal(new TaskId("C"), fanInEvent.JoinTaskId);
-        Assert.Equal(["B-1", "B-2", "B-3"], fanInEvent.PrerequisiteTaskIds.Select(taskId => taskId.Value).OrderBy(value => value));
     }
 
     [Fact]
@@ -91,8 +88,6 @@ public class WorkflowObserverTests
         observer.OnTaskAdded(new TaskAddedEvent(
             WorkflowId: new WorkflowId("W0"),
             TaskId: new TaskId("B"),
-            TaskSpecification: new TaskSpecification(new TaskId("B"), new TaskType("ChildTask")),
-            TaskStatus: new TaskStatus(new WorkflowId("W0"), new TaskId("B")),
             Timestamp: DateTime.UtcNow));
 
         observer.OnDependencyAdded(new DependencyAddedEvent(
@@ -101,19 +96,12 @@ public class WorkflowObserverTests
             DependentTaskId: new TaskId("B"),
             Timestamp: DateTime.UtcNow));
 
-        observer.OnFanInExpanded(new FanInExpandedEvent(
-            WorkflowId: new WorkflowId("W0"),
-            JoinTaskId: new TaskId("C"),
-            PrerequisiteTaskIds: [new TaskId("B-1"), new TaskId("B-2")],
-            Timestamp: DateTime.UtcNow));
-
         string output = writer.ToString();
 
         Assert.Contains("/W0 ReadyToRun, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
         Assert.Contains("/W0/A Running, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
         Assert.Contains("/W0/B added by runtime mutation", output, StringComparison.Ordinal);
         Assert.Contains("/W0 dependency added: A -> B", output, StringComparison.Ordinal);
-        Assert.Contains("/W0 fan-in expanded for C: [B-1,B-2]", output, StringComparison.Ordinal);
     }
 
     private sealed class RecordingWorkflowObserver : IWorkflowObserver
@@ -125,8 +113,6 @@ public class WorkflowObserverTests
         public List<TaskAddedEvent> TaskAddedEvents { get; } = new List<TaskAddedEvent>();
 
         public List<DependencyAddedEvent> DependencyAddedEvents { get; } = new List<DependencyAddedEvent>();
-
-        public List<FanInExpandedEvent> FanInExpandedEvents { get; } = new List<FanInExpandedEvent>();
 
         public void OnTaskTransition(TaskTransitionEvent transitionEvent)
         {
@@ -146,11 +132,6 @@ public class WorkflowObserverTests
         public void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent)
         {
             DependencyAddedEvents.Add(dependencyAddedEvent);
-        }
-
-        public void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent)
-        {
-            FanInExpandedEvents.Add(fanInExpandedEvent);
         }
     }
 }

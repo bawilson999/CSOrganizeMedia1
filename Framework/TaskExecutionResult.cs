@@ -4,12 +4,13 @@ public sealed record TaskExecutionResult
 {
     private TaskExecutionResult(
         ExecutionOutcome executionOutcome,
+        TaskRuntimeMutations runtimeMutations,
         ExecutionFailureKind failureKind = ExecutionFailureKind.None,
         ExecutionOutput? output = null,
         ErrorInfo? error = null,
-        ExecutionRecoverability? recoverability = null,
-        TaskRuntimeMutations? runtimeMutations = null)
+        ExecutionRecoverability? recoverability = null)
     {
+        ArgumentNullException.ThrowIfNull(runtimeMutations);
         Validate(executionOutcome, failureKind, recoverability, runtimeMutations);
 
         ExecutionOutcome = executionOutcome;
@@ -30,22 +31,13 @@ public sealed record TaskExecutionResult
 
     public ExecutionRecoverability? Recoverability { get; }
 
-    public TaskRuntimeMutations? RuntimeMutations { get; }
-
-    public IReadOnlyCollection<TaskSpecification> SpawnedTasks =>
-        RuntimeMutations?.SpawnedTasks ?? Array.Empty<TaskSpecification>();
-
-    public IReadOnlyCollection<TaskDependencySpecification> AddedDependencies =>
-        RuntimeMutations?.AddedDependencies ?? Array.Empty<TaskDependencySpecification>();
-
-    public IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications =>
-        RuntimeMutations?.FanInSpecifications ?? Array.Empty<TaskFanInSpecification>();
+    public TaskRuntimeMutations RuntimeMutations { get; }
 
     private static void Validate(
         ExecutionOutcome executionOutcome,
         ExecutionFailureKind failureKind,
         ExecutionRecoverability? recoverability,
-        TaskRuntimeMutations? runtimeMutations)
+        TaskRuntimeMutations runtimeMutations)
     {
         switch (executionOutcome)
         {
@@ -109,36 +101,23 @@ public sealed record TaskExecutionResult
                     "Task execution results must use a supported terminal outcome.");
         }
 
-        if (executionOutcome != ExecutionOutcome.Succeeded && runtimeMutations is not null)
+        if (executionOutcome != ExecutionOutcome.Succeeded && runtimeMutations != TaskRuntimeMutations.None)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(runtimeMutations),
-                "Only succeeded task results can carry runtime mutations.");
+                "Only succeeded task results can carry non-empty runtime mutations.");
         }
-    }
-
-    internal static TaskExecutionResult SucceededWithMutations(
-        ExecutionOutput? output = null,
-        TaskRuntimeMutations? runtimeMutations = null)
-    {
-        return new TaskExecutionResult(
-            executionOutcome: ExecutionOutcome.Succeeded,
-            output: output,
-            runtimeMutations: runtimeMutations ?? TaskRuntimeMutations.None);
     }
 
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
-        IReadOnlyCollection<TaskFanInSpecification>? fanInSpecifications = null)
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null)
     {
-        return SucceededWithMutations(
-            output,
-            TaskRuntimeMutations.Create(
-                spawnedTasks: spawnedTasks,
-                addedDependencies: addedDependencies,
-                fanInSpecifications: fanInSpecifications));
+        return new TaskExecutionResult(
+            executionOutcome: ExecutionOutcome.Succeeded,
+            runtimeMutations: CreateRuntimeMutations(spawnedTasks, addedDependencies),
+            output: output);
     }
 
     public static TaskExecutionResult Canceled(
@@ -148,6 +127,7 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Canceled,
+            runtimeMutations: TaskRuntimeMutations.None,
             output: output,
             error: error,
             recoverability: recoverability);
@@ -161,9 +141,29 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Failed,
+            runtimeMutations: TaskRuntimeMutations.None,
             failureKind: failureKind,
             output: output,
             error: error,
             recoverability: recoverability);
+    }
+
+    private static TaskRuntimeMutations CreateRuntimeMutations(
+        IReadOnlyCollection<TaskSpecification>? spawnedTasks,
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies)
+    {
+        if (IsNullOrEmpty(spawnedTasks) && IsNullOrEmpty(addedDependencies))
+        {
+            return TaskRuntimeMutations.None;
+        }
+
+        return new TaskRuntimeMutations(
+            SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
+            AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>());
+    }
+
+    private static bool IsNullOrEmpty<T>(IReadOnlyCollection<T>? values)
+    {
+        return values is null || values.Count == 0;
     }
 }

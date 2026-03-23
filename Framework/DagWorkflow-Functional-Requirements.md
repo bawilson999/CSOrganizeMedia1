@@ -18,7 +18,7 @@ This document covers the current synchronous DagWorkflow engine and its consumer
 
 - workflow specification and validation
 - static workflow execution
-- dynamic task fan-out and fan-in
+- dynamic task spawning and runtime dependency addition
 - task execution through a pluggable executor
 - workflow and task status reporting
 - recoverability and retry-oriented rerun behavior
@@ -38,7 +38,7 @@ The library allows consumers to:
 3. Execute tasks through a user-supplied executor.
 4. Inspect status snapshots for the workflow and its tasks.
 5. Observe state transitions and runtime graph mutations.
-6. Dynamically create additional tasks and joins at execution time.
+6. Dynamically create additional tasks and dependencies at execution time.
 
 ## Actors
 
@@ -78,7 +78,6 @@ The system shall allow a consumer to define a workflow declaratively using:
 - `WorkflowSpecification`
 - `TaskSpecification`
 - `TaskDependencySpecification`
-- `TaskFanInSpecification`
 
 Rationale:
 
@@ -445,7 +444,6 @@ The system shall allow success results to carry:
 - optional output
 - optional spawned tasks
 - optional added dependencies
-- optional fan-in specifications
 
 ### FR-048 Canceled Results
 
@@ -532,44 +530,33 @@ The system shall populate `SpawnedByTaskId` with the current task id when a spaw
 
 The system shall allow a succeeded task result to add dependencies at runtime.
 
-### FR-064 Dynamic Fan-In Support
+### FR-064 Dynamic Join Blocking
 
-The system shall allow a succeeded task result to add one or more `TaskFanInSpecification` values at runtime.
+The system shall allow a succeeded task result to express dynamic joins by adding ordinary runtime dependencies to a join task.
 
-### FR-065 Fan-In Expansion Behavior
-
-The system shall expand each fan-in declaration into concrete dependencies using:
-
-- spawned tasks from the same result when `IncludeSpawnedTasks = true`
-- `AdditionalPrerequisiteTaskIds` when provided
-
-### FR-066 Dynamic Join Blocking
-
-The system shall keep a join task blocked until all fan-in prerequisite tasks have finished successfully enough to satisfy dependency requirements.
-
-### FR-067 Dynamic Dependency Target Restriction
+### FR-065 Dynamic Dependency Target Restriction
 
 The system shall allow runtime dependencies to target only tasks that have not started execution.
 
-### FR-068 Dynamic Cycle Prevention
+### FR-066 Dynamic Cycle Prevention
 
 The system shall reject runtime dependencies that would introduce a cycle.
 
-### FR-069 Dynamic Duplicate Dependency Prevention
+### FR-067 Dynamic Duplicate Dependency Prevention
 
 The system shall reject runtime dependencies that duplicate an existing dependency.
 
-### FR-070 Dynamic Self Dependency Prevention
+### FR-068 Dynamic Self Dependency Prevention
 
 The system shall reject runtime self-dependencies.
 
-### FR-071 Dynamic Missing Endpoint Prevention
+### FR-069 Dynamic Missing Endpoint Prevention
 
 The system shall reject runtime dependencies that reference tasks not present in the runtime graph.
 
-### FR-072 Queue Re-Blocking After Dynamic Dependency Addition
+### FR-070 Queue Re-Blocking After Dynamic Dependency Addition
 
-The system shall support the case where a task that was already admitted to the queue becomes blocked again due to runtime fan-in expansion or dependency addition.
+The system shall support the case where a task that was already admitted to the queue becomes blocked again due to runtime dependency addition.
 
 Required effect:
 
@@ -617,7 +604,6 @@ The system shall expose `IWorkflowObserver` with callbacks for:
 - workflow transitions
 - task additions
 - dependency additions
-- fan-in expansion
 
 ### FR-081 Workflow Transition Reporting
 
@@ -635,11 +621,7 @@ The system shall notify observers when runtime mutation adds a task.
 
 The system shall notify observers when runtime mutation adds a dependency.
 
-### FR-085 Fan-In Expansion Reporting
-
-The system shall notify observers when fan-in expansion adds prerequisite relationships to a join task.
-
-### FR-086 Built-In Text Observer
+### FR-085 Built-In Text Observer
 
 The system shall provide a built-in `TextWriterWorkflowObserver` that writes human-readable lines for:
 
@@ -647,16 +629,15 @@ The system shall provide a built-in `TextWriterWorkflowObserver` that writes hum
 - task transitions
 - task additions
 - dependency additions
-- fan-in expansion
 
-### FR-087 Status Formatter Utilities
+### FR-086 Status Formatter Utilities
 
 The system shall provide formatter utilities for task and workflow status display lines:
 
 - `TaskStatusFormatter`
 - `WorkflowStatusFormatter`
 
-### FR-088 Observer Failure Isolation
+### FR-087 Observer Failure Isolation
 
 The system shall isolate observer failures from workflow execution when emitting engine-generated notifications.
 
@@ -666,23 +647,23 @@ Required effect:
 
 ## Output And Error Requirements
 
-### FR-089 Serializable Output Model
+### FR-088 Serializable Output Model
 
 The system shall represent task and workflow output through `ExecutionOutput` rather than raw implementation-specific objects.
 
-### FR-090 Built-In Text Output Type
+### FR-089 Built-In Text Output Type
 
 The system shall provide `TextExecutionOutput` as a built-in concrete output type.
 
-### FR-091 JSON Serialization Support
+### FR-090 JSON Serialization Support
 
 The system shall allow execution outputs to serialize themselves to JSON through `ExecutionOutput.ToJson()`.
 
-### FR-092 Serializable Error Model
+### FR-091 Serializable Error Model
 
 The system shall represent task and workflow errors using serializable `ErrorInfo` values instead of storing raw exceptions on status records.
 
-### FR-093 Exception Conversion Support
+### FR-092 Exception Conversion Support
 
 The system shall provide `ErrorInfo.FromException(...)` to convert exceptions into serializable error payloads.
 
@@ -706,7 +687,7 @@ The system shall be considered functionally complete for the current implementat
 4. Executors can return succeeded, canceled, and failed results using the factory API.
 5. The engine correctly enforces status transitions and result invariants.
 6. Retryable canceled or failed tasks can be rerun through subsequent workflow executions.
-7. Succeeded tasks can spawn tasks, add dependencies, and expand fan-in at runtime.
+7. Succeeded tasks can spawn tasks and add dependencies at runtime.
 8. Observers can receive transitions and mutation notifications.
 9. Consumers can inspect final workflow and task statuses, outputs, errors, timestamps, and recoverability.
 

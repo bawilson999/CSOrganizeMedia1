@@ -4,11 +4,6 @@ public class Task
 {
     private IWorkflowObserver _observer;
 
-    internal Task(WorkflowId workflowId, TaskId taskId)
-        : this(workflowId, new TaskSpecification(taskId, TaskType: new TaskType("Task")))
-    {
-    }
-
     internal Task(WorkflowId workflowId, TaskSpecification specification)
         : this(workflowId, specification, new TaskExecutionState(workflowId, specification.TaskId))
     {
@@ -51,12 +46,6 @@ public class Task
         return Status.ExecutionPhase == ExecutionPhase.NotStarted ||
                (Status.ExecutionPhase == ExecutionPhase.Finished &&
                 ExecutionTransitionSupport.IsRestartRecoverability(Status.Recoverability));
-    }
-
-    internal bool HasSatisfiedDependencyExecution()
-    {
-        return Status.ExecutionPhase == ExecutionPhase.Finished &&
-               !ExecutionTransitionSupport.IsRestartRecoverability(Status.Recoverability);
     }
 
     internal void MarkReadyAndQueued()

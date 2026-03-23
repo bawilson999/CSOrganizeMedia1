@@ -10,7 +10,7 @@ It focuses on the public API that exists today:
 - running workflows with the built-in executor or a custom executor
 - reading workflow and task status
 - observing transitions and runtime mutations
-- using dynamic fan-out and fan-in
+- using dynamic task spawning and runtime dependency addition
 
 This is a developer guide, not an internal architecture document. It is written against the implemented code in this repository.
 
@@ -20,7 +20,7 @@ DagWorkflow is a synchronous DAG workflow engine with these core capabilities:
 
 1. Static DAG execution.
 2. Dynamic task creation at runtime.
-3. Runtime dependency addition and fan-in expansion.
+3. Runtime dependency addition.
 4. Rich task and workflow status snapshots.
 5. Observer-based transition and mutation reporting.
 6. A small executor interface that lets you plug in your own task behavior.
@@ -76,11 +76,6 @@ public record TaskSpecification(
 public readonly record struct TaskDependencySpecification(
     TaskId PrerequisiteTaskId,
     TaskId DependentTaskId);
-
-public record TaskFanInSpecification(
-    TaskId JoinTaskId,
-    IReadOnlyCollection<TaskId>? AdditionalPrerequisiteTaskIds = null,
-    bool IncludeSpawnedTasks = true);
 ```
 
 Important current validation rules:
@@ -321,7 +316,6 @@ The built-in text observer writes lines like these:
 /W0/A Running, Pending, None, AwaitingOutcome
 /W0/B added by runtime mutation
 /W0 dependency added: A -> B
-/W0 fan-in expanded for C: [B-1,B-2]
 ```
 
 ### Custom Observer
@@ -351,10 +345,6 @@ public sealed class RecordingObserver : IWorkflowObserver
     }
 
     public void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent)
-    {
-    }
-
-    public void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent)
     {
     }
 }
@@ -430,13 +420,13 @@ Current baseline mappings are:
 - failed + permanent -> `NotRecoverable`
 - failed + unknown or none -> `RequiresIntervention`
 
-## Dynamic Fan-Out And Fan-In
+## Dynamic Task Spawning And Runtime Dependencies
 
-DagWorkflow supports runtime task creation and runtime join expansion.
+DagWorkflow supports runtime task spawning and runtime dependency addition.
 
 ### When To Use It
 
-Use dynamic fan-out when one task discovers additional work only at execution time.
+Use dynamic task spawning when one task discovers additional work only at execution time.
 
 Typical example:
 
@@ -467,27 +457,54 @@ return TaskExecutionResult.Succeeded(
 
 If `SpawnedByTaskId` is omitted, the workflow runtime fills it in with the current task id.
 
-### Returning Fan-In Specifications
+### Returning Runtime Dependencies
 
 ```csharp
+TaskSpecification[] spawnedTasks =
+[
+    new TaskSpecification(
+        TaskId: new TaskId("B-1"),
+        TaskType: new TaskType("ProcessFile"),
+        InputType: new InputType("application/json"),
+        InputJson: "{ \"file\": \"a.mp4\" }"),
+    new TaskSpecification(
+        TaskId: new TaskId("B-2"),
+        TaskType: new TaskType("ProcessFile"),
+        InputType: new InputType("application/json"),
+        InputJson: "{ \"file\": \"b.mp4\" }")
+];
+
 return TaskExecutionResult.Succeeded(
     spawnedTasks: spawnedTasks,
-    fanInSpecifications:
+    addedDependencies:
     [
-        new TaskFanInSpecification(
-            JoinTaskId: new TaskId("C"))
+        new TaskDependencySpecification(new TaskId("B-1"), new TaskId("C")),
+        new TaskDependencySpecification(new TaskId("B-2"), new TaskId("C"))
     ]);
 ```
 
-With `IncludeSpawnedTasks = true`, the framework expands the fan-in into dependencies from the spawned tasks in that same result.
-
-If you need additional prerequisites, include them explicitly:
+If you need additional prerequisites, add them explicitly:
 
 ```csharp
-new TaskFanInSpecification(
-    JoinTaskId: new TaskId("C"),
-    AdditionalPrerequisiteTaskIds: [new TaskId("AUX")],
-    IncludeSpawnedTasks: true)
+new TaskDependencySpecification(new TaskId("AUX"), new TaskId("C"))
+```
+
+### Inspecting Runtime Mutations
+
+`TaskExecutionResult.RuntimeMutations` is always present. Results without runtime graph changes use `TaskRuntimeMutations.None`.
+
+```csharp
+TaskExecutionResult result = executor.Execute(executionContext);
+
+foreach (TaskSpecification spawnedTask in result.RuntimeMutations.SpawnedTasks)
+{
+    Console.WriteLine($"spawned: {spawnedTask.TaskId}");
+}
+
+foreach (TaskDependencySpecification dependency in result.RuntimeMutations.AddedDependencies)
+{
+    Console.WriteLine($"dependency: {dependency.PrerequisiteTaskId} -> {dependency.DependentTaskId}");
+}
 ```
 
 ### Dynamic Execution Example
@@ -631,7 +648,7 @@ In the current implementation, `MaxConcurrency` controls queue admission, not si
 
 ### 5. Constructing Workflow Or Task Directly
 
-Consumers should build workflows from specifications:
+Consumers should not construct runtime `Workflow` or `Task` objects directly. Build workflows from specifications:
 
 ```csharp
 Workflow workflow = Workflow.FromSpecification(specification);
@@ -648,7 +665,7 @@ Typical tests assert:
 - task outputs
 - spawned task inheritance of `SpawnedByTaskId`
 - observer event sequences
-- fan-in expansion behavior
+- runtime dependency behavior
 
 A minimal execution-order assertion looks like this:
 

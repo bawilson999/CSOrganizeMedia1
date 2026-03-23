@@ -7,11 +7,6 @@ public class Workflow
     private readonly Dictionary<TaskId, Task> _tasksById;
     private IWorkflowObserver _observer = NullWorkflowObserver.Instance;
 
-    internal Workflow(WorkflowId workflowId)
-        : this(workflowId, maxConcurrency: null)
-    {
-    }
-
     internal Workflow(WorkflowId workflowId, int? maxConcurrency)
     {
         WorkflowId = workflowId;
@@ -205,12 +200,9 @@ public class Workflow
         ArgumentNullException.ThrowIfNull(currentTask);
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        TaskRuntimeMutations runtimeMutations = executionResult.RuntimeMutations ?? TaskRuntimeMutations.None;
+        TaskRuntimeMutations runtimeMutations = executionResult.RuntimeMutations;
         IReadOnlyCollection<TaskSpecification> spawnedTasks = runtimeMutations.SpawnedTasks;
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = runtimeMutations.AddedDependencies;
-        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = runtimeMutations.FanInSpecifications;
-
-        List<TaskId> spawnedTaskIds = new List<TaskId>();
 
         foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
         {
@@ -225,19 +217,12 @@ public class Workflow
             }
 
             RuntimeAddTask(normalizedSpecification);
-            spawnedTaskIds.Add(normalizedSpecification.TaskId);
         }
 
         foreach (TaskDependencySpecification dependency in addedDependencies)
         {
             RuntimeAddDependency(dependency);
         }
-
-        foreach (TaskFanInSpecification fanInSpecification in fanInSpecifications)
-        {
-            RuntimeAddFanIn(fanInSpecification, spawnedTaskIds);
-        }
-
     }
 
     internal Task RuntimeAddTask(TaskSpecification taskSpecification)
@@ -265,7 +250,7 @@ public class Workflow
                 $"Workflow {WorkflowId} references missing dependent task {dependency.DependentTaskId}.");
         }
 
-        if (!HasNotStartedExecution(dependentTask))
+        if (!ExecutionTransitionSupport.HasNotStartedExecution(dependentTask.Status.ExecutionPhase))
         {
             throw new InvalidOperationException(
                 $"Workflow {WorkflowId} can only add dependencies to tasks that have not started execution. Task {dependentTask.TaskId} is currently {dependentTask.Status.ExecutionPhase}.");
@@ -278,44 +263,6 @@ public class Workflow
 
         AddAdjacency(prerequisiteTask, dependentTask);
         NotifyDependencyAdded(dependency);
-    }
-
-    private static bool HasNotStartedExecution(Task task)
-    {
-        return ExecutionTransitionSupport.HasNotStartedExecution(task.Status.ExecutionPhase);
-    }
-
-    internal void RuntimeAddFanIn(TaskFanInSpecification fanInSpecification, IReadOnlyCollection<TaskId> spawnedTaskIds)
-    {
-        ArgumentNullException.ThrowIfNull(fanInSpecification);
-        fanInSpecification.Validate();
-
-        HashSet<TaskId> prerequisiteTaskIds = new HashSet<TaskId>();
-
-        if (fanInSpecification.IncludeSpawnedTasks && spawnedTaskIds is not null)
-        {
-            foreach (TaskId spawnedTaskId in spawnedTaskIds)
-            {
-                prerequisiteTaskIds.Add(spawnedTaskId);
-            }
-        }
-
-        if (fanInSpecification.AdditionalPrerequisiteTaskIds is not null)
-        {
-            foreach (TaskId prerequisiteTaskId in fanInSpecification.AdditionalPrerequisiteTaskIds)
-            {
-                prerequisiteTaskIds.Add(prerequisiteTaskId);
-            }
-        }
-
-        foreach (TaskId prerequisiteTaskId in prerequisiteTaskIds)
-        {
-            RuntimeAddDependency(new TaskDependencySpecification(
-                PrerequisiteTaskId: prerequisiteTaskId,
-                DependentTaskId: fanInSpecification.JoinTaskId));
-        }
-
-        NotifyFanInExpanded(fanInSpecification.JoinTaskId, prerequisiteTaskIds.ToArray());
     }
 
     internal IReadOnlyCollection<Task> GetTasks()
@@ -378,8 +325,6 @@ public class Workflow
             _observer.OnTaskAdded(new TaskAddedEvent(
                 WorkflowId: WorkflowId,
                 TaskId: task.TaskId,
-                TaskSpecification: task.Specification,
-                TaskStatus: task.Status,
                 Timestamp: task.Status.Timestamp ?? DateTime.UtcNow));
         }
         catch
@@ -402,18 +347,4 @@ public class Workflow
         }
     }
 
-    private void NotifyFanInExpanded(TaskId joinTaskId, IReadOnlyCollection<TaskId> prerequisiteTaskIds)
-    {
-        try
-        {
-            _observer.OnFanInExpanded(new FanInExpandedEvent(
-                WorkflowId: WorkflowId,
-                JoinTaskId: joinTaskId,
-                PrerequisiteTaskIds: prerequisiteTaskIds,
-                Timestamp: DateTime.UtcNow));
-        }
-        catch
-        {
-        }
-    }
 }

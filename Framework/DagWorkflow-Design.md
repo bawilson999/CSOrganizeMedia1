@@ -36,7 +36,7 @@ The system also needs to preserve rich status semantics:
 5. Allow runtime graph mutation without giving task code direct access to mutable engine state.
 6. Keep workflow state serializable and persistence-friendly.
 7. Allow bounded scheduling through a workflow-level concurrency setting.
-8. Make fan-out and fan-in first-class concepts instead of forcing callers to hand-build edge lists for common cases.
+8. Make runtime graph mutation practical without exposing mutable engine state directly to callers.
 9. Make it practical to publish as a reusable package with tests and documentation.
 
 ## Non-Goals
@@ -55,7 +55,6 @@ The declarative model defines what should run.
 - `WorkflowSpecification`
 - `TaskSpecification`
 - `TaskDependencySpecification`
-- `TaskFanInSpecification`
 
 These types are inputs to the runtime. They are serializable, validation-friendly, and intended to be stable contracts.
 
@@ -112,7 +111,6 @@ The implemented design exposes workflow observability as a first-class public su
 - `WorkflowTransitionEvent`
 - `TaskAddedEvent`
 - `DependencyAddedEvent`
-- `FanInExpandedEvent`
 - `TaskStatusFormatter`
 - `WorkflowStatusFormatter`
 - `TextWriterWorkflowObserver`
@@ -206,7 +204,6 @@ Primary types:
 - `WorkflowSpecification`
 - `TaskSpecification`
 - `TaskDependencySpecification`
-- `TaskFanInSpecification`
 
 ### 2. Domain Runtime Layer
 
@@ -245,7 +242,7 @@ Responsibilities:
 - enforce `MaxConcurrency`
 - execute tasks through `ITaskExecutor`
 - apply `TaskExecutionResult`
-- apply runtime mutations such as spawned tasks and fan-in expansion
+- apply runtime mutations such as spawned tasks and added dependencies
 
 In the current implementation this layer is entirely internal. Consumers drive execution through `Workflow.RunToCompletion(...)` rather than by interacting with `WorkflowOrchestrator` directly.
 
@@ -297,7 +294,6 @@ Observers receive notifications for:
 - workflow transitions
 - runtime task additions
 - runtime dependency additions
-- runtime fan-in expansion
 
 This is the mechanism now used for console and text output. The earlier graph-display-oriented console snapshot approach has been removed in favor of state-transition observability.
 
@@ -346,11 +342,6 @@ public record TaskSpecification(
 public readonly record struct TaskDependencySpecification(
     TaskId PrerequisiteTaskId,
     TaskId DependentTaskId);
-
-public record TaskFanInSpecification(
-    TaskId JoinTaskId,
-    IReadOnlyCollection<TaskId>? AdditionalPrerequisiteTaskIds = null,
-    bool IncludeSpawnedTasks = true);
 ```
 
 ### Execution Boundary
@@ -372,8 +363,7 @@ public interface ITaskExecutor
 
 public sealed record TaskRuntimeMutations(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
-    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
-    IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications);
+    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies);
 
 public sealed record TaskExecutionResult
 {
@@ -382,17 +372,12 @@ public sealed record TaskExecutionResult
     public ExecutionOutput? Output { get; }
     public ErrorInfo? Error { get; }
     public ExecutionRecoverability? Recoverability { get; }
-    public TaskRuntimeMutations? RuntimeMutations { get; }
-
-    public IReadOnlyCollection<TaskSpecification> SpawnedTasks { get; }
-    public IReadOnlyCollection<TaskDependencySpecification> AddedDependencies { get; }
-    public IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications { get; }
+    public TaskRuntimeMutations RuntimeMutations { get; }
 
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
-        IReadOnlyCollection<TaskFanInSpecification>? fanInSpecifications = null);
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null);
 
     public static TaskExecutionResult Canceled(
         ExecutionOutput? output = null,
@@ -424,7 +409,6 @@ public interface IWorkflowObserver
     void OnWorkflowTransition(WorkflowTransitionEvent transitionEvent);
     void OnTaskAdded(TaskAddedEvent taskAddedEvent);
     void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent);
-    void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent);
 }
 
 public static class TaskStatusFormatter
@@ -571,7 +555,7 @@ Execution behavior:
 4. Execute tasks through `ITaskExecutor`.
 5. Transition tasks and workflow to terminal state.
 
-### Use Case 2: Dynamic Workflow With Runtime Fan-Out and Fan-In
+### Use Case 2: Dynamic Workflow With Runtime Task Spawning and Join Dependencies
 
 The user-provided dynamic example is:
 
@@ -584,7 +568,7 @@ Representative semantics:
 1. `A` starts with a directory path as input.
 2. `A` discovers N files.
 3. `A` returns N new `TaskSpecification` instances for file-level work.
-4. `A` returns a `TaskFanInSpecification` that wires all spawned tasks into `C`.
+4. `A` returns runtime-added dependencies that wire all spawned tasks into `C`.
 5. The orchestrator materializes those tasks and edges.
 6. `C` becomes ready only after every generated file task finishes.
 
@@ -619,9 +603,11 @@ return TaskExecutionResult.Succeeded(
         new TaskSpecification(new TaskId("B-2"), new TaskType("ProcessMp4"), new InputType("application/json"), "{ \"file\": \"b.mp4\" }"),
         new TaskSpecification(new TaskId("B-3"), new TaskType("ProcessMp4"), new InputType("application/json"), "{ \"file\": \"c.mp4\" }")
     },
-    fanInSpecifications: new[]
+    addedDependencies: new[]
     {
-        new TaskFanInSpecification(JoinTaskId: new TaskId("C"))
+        new TaskDependencySpecification(new TaskId("B-1"), new TaskId("C")),
+        new TaskDependencySpecification(new TaskId("B-2"), new TaskId("C")),
+        new TaskDependencySpecification(new TaskId("B-3"), new TaskId("C"))
     });
 ```
 
@@ -629,9 +615,9 @@ Execution behavior:
 
 1. `A` runs first.
 2. `A` returns dynamically spawned `B-*` tasks.
-3. `A` returns a fan-in declaration targeting `C`.
+3. `A` returns explicit runtime dependencies targeting `C`.
 4. The orchestrator adds all `B-*` tasks at runtime.
-5. The orchestrator expands the fan-in declaration into dependencies:
+5. The orchestrator adds the returned dependencies:
    - `B-1 -> C`
    - `B-2 -> C`
    - `B-3 -> C`
@@ -682,9 +668,9 @@ Rules:
 6. Runtime dependencies may only target tasks that have not started yet.
 7. Runtime graph mutations are only allowed on successful task completion.
 
-## Fan-Out and Fan-In Model
+## Runtime Mutation Model
 
-### Fan-Out
+### Task Spawning
 
 A task may return `SpawnedTasks` in `TaskExecutionResult.Succeeded(...)`.
 
@@ -694,18 +680,15 @@ Each spawned task is:
 - added to the live workflow graph
 - tagged with `SpawnedByTaskId` when omitted
 
-### Fan-In
+### Runtime-Added Dependencies
 
-A task may return one or more `TaskFanInSpecification` values from `TaskExecutionResult.Succeeded(...)`.
+A task may return `AddedDependencies` in `TaskExecutionResult.Succeeded(...)`.
 
-The orchestrator expands each fan-in declaration into concrete dependencies against:
+These are ordinary `TaskDependencySpecification` values applied to the live graph after the current task succeeds.
 
-- the spawned tasks from that same result, when `IncludeSpawnedTasks = true`
-- any explicit `AdditionalPrerequisiteTaskIds`
+The current implementation groups runtime mutation collections under `TaskRuntimeMutations`, which is the single public mutation payload exposed on `TaskExecutionResult`.
 
-This keeps the common join pattern compact and expressive.
-
-The current implementation groups these three mutation collections under `TaskRuntimeMutations`, while still exposing `SpawnedTasks`, `AddedDependencies`, and `FanInSpecifications` as convenience properties on `TaskExecutionResult`.
+All task results expose a non-null `RuntimeMutations` payload. Results without mutations use `TaskRuntimeMutations.None`.
 
 ## Persistence Direction
 
@@ -749,7 +732,6 @@ src/
     WorkflowSpecification.cs
     TaskSpecification.cs
     TaskDependencySpecification.cs
-    TaskFanInSpecification.cs
     IExecutionContext.cs
     ITaskExecutor.cs
     IWorkflowObserver.cs
@@ -767,7 +749,6 @@ src/
     WorkflowTransitionEvent.cs
     TaskAddedEvent.cs
     DependencyAddedEvent.cs
-    FanInExpandedEvent.cs
     TaskStatusFormatter.cs
     WorkflowStatusFormatter.cs
 
@@ -828,14 +809,14 @@ The standalone project should include tests for the following behaviors.
 - spawned tasks are added to the live graph
 - spawned tasks inherit `SpawnedByTaskId` when omitted
 - dynamic dependency additions are validated
-- fan-in expands into correct concrete edges
-- join task remains blocked until all fan-in prerequisites finish
+- join dependencies create the correct concrete edges
+- join task remains blocked until all added prerequisites finish
 
 ### Observability
 
 - task transitions are emitted through `IWorkflowObserver`
 - workflow transitions are emitted through `IWorkflowObserver`
-- runtime mutation events are emitted for task additions, dependency additions, and fan-in expansion
+- runtime mutation events are emitted for task additions and dependency additions
 - formatter output remains stable for task and workflow status lines
 
 ### Concurrency Controls
@@ -876,7 +857,7 @@ Add optional persistence and restart support.
 1. Should `ITaskExecutor` become async in the first standalone version, or should async be a second-step migration?
 2. Should `TaskSpecification.InputJson` remain string-based, or should there be a stronger typed payload abstraction?
 3. Should a durable persistence abstraction be part of v1, or layered later?
-4. Should fan-in be limited to spawned children from the current task result, or expanded into richer grouping semantics later?
+4. Should the framework eventually add higher-level join helpers, or keep only explicit runtime dependency addition?
 5. Should task-level retry policy live in `TaskSpecification`, workflow defaults, or both?
 
 ## Recommended Next Milestone

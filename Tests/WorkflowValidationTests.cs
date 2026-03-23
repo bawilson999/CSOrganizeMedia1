@@ -5,6 +5,28 @@ using OrganizeMedia.Framework;
 public class WorkflowValidationTests
 {
     [Fact]
+    public void TaskExecutionResult_SucceededWithoutMutations_UsesNoneMutationPayload()
+    {
+        TaskExecutionResult result = TaskExecutionResult.Succeeded();
+
+        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
+        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
+        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+    }
+
+    [Fact]
+    public void TaskExecutionResult_SucceededWithEmptyMutationCollections_UsesNoneMutationPayload()
+    {
+        TaskExecutionResult result = TaskExecutionResult.Succeeded(
+            spawnedTasks: Array.Empty<TaskSpecification>(),
+            addedDependencies: Array.Empty<TaskDependencySpecification>());
+
+        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
+        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
+        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+    }
+
+    [Fact]
     public void TaskExecutionResult_Canceled_RejectsNonTerminalRecoverability()
     {
         ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
@@ -22,6 +44,26 @@ public class WorkflowValidationTests
                 recoverability: ExecutionRecoverability.NoRecoveryNeeded));
 
         Assert.Contains("terminal recoverability", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void TaskExecutionResult_Canceled_UsesNoneMutationPayload()
+    {
+        TaskExecutionResult result = TaskExecutionResult.Canceled();
+
+        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
+        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
+        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+    }
+
+    [Fact]
+    public void TaskExecutionResult_Failed_UsesNoneMutationPayload()
+    {
+        TaskExecutionResult result = TaskExecutionResult.Failed(ExecutionFailureKind.Transient);
+
+        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
+        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
+        Assert.Empty(result.RuntimeMutations.AddedDependencies);
     }
 
     [Fact]

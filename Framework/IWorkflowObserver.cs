@@ -9,8 +9,6 @@ public interface IWorkflowObserver
     void OnTaskAdded(TaskAddedEvent taskAddedEvent);
 
     void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent);
-
-    void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent);
 }
 
 internal sealed class NullWorkflowObserver : IWorkflowObserver
@@ -34,10 +32,6 @@ internal sealed class NullWorkflowObserver : IWorkflowObserver
     }
 
     public void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent)
-    {
-    }
-
-    public void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent)
     {
     }
 }

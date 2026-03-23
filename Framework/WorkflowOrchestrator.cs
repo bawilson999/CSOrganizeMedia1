@@ -105,7 +105,7 @@ internal sealed class WorkflowOrchestrator
             if (!task.IsSchedulable())
                 continue;
 
-            if (workflow.GetDependencies(task).All(dependency => dependency.HasSatisfiedDependencyExecution()))
+            if (workflow.GetDependencies(task).All(dependency => dependency.IsCompleteForWorkflowSuccess()))
             {
                 task.MarkReadyAndQueued();
                 readyQueue.Enqueue(task);

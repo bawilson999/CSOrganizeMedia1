@@ -40,11 +40,4 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
         _writer.WriteLine(
             $"/{dependencyAddedEvent.WorkflowId} dependency added: {dependencyAddedEvent.PrerequisiteTaskId} -> {dependencyAddedEvent.DependentTaskId}");
     }
-
-    public void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent)
-    {
-        ArgumentNullException.ThrowIfNull(fanInExpandedEvent);
-        _writer.WriteLine(
-            $"/{fanInExpandedEvent.WorkflowId} fan-in expanded for {fanInExpandedEvent.JoinTaskId}: [{string.Join(",", fanInExpandedEvent.PrerequisiteTaskIds)}]");
-    }
 }

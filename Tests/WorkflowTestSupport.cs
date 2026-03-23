@@ -95,8 +95,15 @@ internal sealed class RecordingFakeTaskExecutor : ITaskExecutor
     }
 }
 
-internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
+internal sealed class DynamicSpawnAndJoinFakeTaskExecutor : ITaskExecutor
 {
+    private static readonly TaskSpecification[] SpawnedProcessTasks =
+    [
+        CreateProcessTask("B-1", "a.mp4"),
+        CreateProcessTask("B-2", "b.mp4"),
+        CreateProcessTask("B-3", "c.mp4")
+    ];
+
     public List<string> ExecutedTaskIds { get; } = new List<string>();
 
     public Dictionary<string, TaskId?> SpawnedByTaskIds { get; } = new Dictionary<string, TaskId?>();
@@ -114,16 +121,8 @@ internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
         {
             "A" => TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput("Discovered 3 mp4 files"),
-                spawnedTasks:
-                [
-                    CreateProcessTask("B-1", "a.mp4"),
-                    CreateProcessTask("B-2", "b.mp4"),
-                    CreateProcessTask("B-3", "c.mp4")
-                ],
-                fanInSpecifications:
-                [
-                    new TaskFanInSpecification(JoinTaskId: new TaskId("C"))
-                ]),
+                spawnedTasks: SpawnedProcessTasks,
+                addedDependencies: CreateJoinDependencies(SpawnedProcessTasks, new TaskId("C"))),
             "B-1" => RecordSpawnedTaskAndReturnResult(executionContext, "a.mp4"),
             "B-2" => RecordSpawnedTaskAndReturnResult(executionContext, "b.mp4"),
             "B-3" => RecordSpawnedTaskAndReturnResult(executionContext, "c.mp4"),
@@ -163,5 +162,14 @@ internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
             TaskType: new TaskType("ProcessMp4"),
             InputType: new InputType("application/json"),
             InputJson: $"{{ \"file\": \"{fileName}\" }}");
+    }
+
+    private static TaskDependencySpecification[] CreateJoinDependencies(
+        IReadOnlyCollection<TaskSpecification> spawnedTasks,
+        TaskId joinTaskId)
+    {
+        return spawnedTasks
+            .Select(taskSpecification => new TaskDependencySpecification(taskSpecification.TaskId, joinTaskId))
+            .ToArray();
     }
 }
