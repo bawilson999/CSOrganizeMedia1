@@ -376,15 +376,14 @@ public sealed record TaskSpecification
     public InputType? InputType { get; }
     public string? InputJson { get; }
     public TaskCardinality Cardinality { get; }
-    public int InitialInstanceCount { get; }
 }
 
 public readonly record struct TaskDependencySpecification(
     TaskSpecificationId PrerequisiteTaskSpecificationId,
     TaskSpecificationId DependentTaskSpecificationId);
 
-public sealed record TaskSpecificationSpawn(
-    string SpawnKey,
+public sealed record TaskSpawnRequest(
+    string SpawnReference,
     TaskSpecificationId TaskSpecificationId,
     InputType? InputType = null,
     string? InputJson = null);
@@ -393,11 +392,11 @@ public sealed record TaskNodeReference
 {
     public TaskSpecificationId? TaskSpecificationId { get; }
     public TaskInstanceId? TaskInstanceId { get; }
-    public string? SpawnKey { get; }
+    public string? SpawnReference { get; }
 
-    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId);
-    public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId);
-    public static TaskNodeReference SpawnedTask(string spawnKey);
+    public static TaskNodeReference ForTaskSpecification(TaskSpecificationId taskSpecificationId);
+    public static TaskNodeReference ForTaskInstance(TaskInstanceId taskInstanceId);
+    public static TaskNodeReference ForSpawnReference(string spawnReference);
 }
 
 public sealed record TaskInstanceDependency(
@@ -432,7 +431,7 @@ public interface ITaskExecutor
 public sealed record WorkflowGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
-    IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
+    IReadOnlyCollection<TaskSpawnRequest> TaskSpawnRequests,
     IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies);
 
 public sealed record TaskExecutionResult
@@ -448,7 +447,7 @@ public sealed record TaskExecutionResult
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
-        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications = null,
+        IReadOnlyCollection<TaskSpawnRequest>? taskSpawnRequests = null,
         IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies = null);
 
     public static TaskExecutionResult Canceled(
@@ -789,7 +788,7 @@ Rules:
 
 A task may return `SpawnedTasks` in `TaskExecutionResult.Succeeded(...)` as a low-level escape hatch.
 
-The preferred public model is to declare zero-to-many specifications with `TaskCardinality.ZeroToMany` and materialize concrete runtime instances through `TaskSpecificationSpawn`.
+The preferred public model is to declare zero-to-many specifications with `TaskCardinality.ZeroToMany` and materialize concrete runtime instances through `TaskSpawnRequest`.
 
 Each spawned task is:
 

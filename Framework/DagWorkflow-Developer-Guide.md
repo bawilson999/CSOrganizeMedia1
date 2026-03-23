@@ -91,7 +91,6 @@ public sealed record TaskSpecification
     public InputType? InputType { get; }
     public string? InputJson { get; }
     public TaskCardinality Cardinality { get; }
-    public int InitialInstanceCount { get; }
 }
 
 public readonly record struct TaskDependencySpecification(
@@ -108,8 +107,8 @@ public enum TaskCardinality
     ZeroToMany
 }
 
-public sealed record TaskSpecificationSpawn(
-    string SpawnKey,
+public sealed record TaskSpawnRequest(
+    string SpawnReference,
     TaskSpecificationId TaskSpecificationId,
     InputType? InputType = null,
     string? InputJson = null);
@@ -118,11 +117,11 @@ public sealed record TaskNodeReference
 {
     public TaskSpecificationId? TaskSpecificationId { get; }
     public TaskInstanceId? TaskInstanceId { get; }
-    public string? SpawnKey { get; }
+    public string? SpawnReference { get; }
 
-    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId);
-    public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId);
-    public static TaskNodeReference SpawnedTask(string spawnKey);
+    public static TaskNodeReference ForTaskSpecification(TaskSpecificationId taskSpecificationId);
+    public static TaskNodeReference ForTaskInstance(TaskInstanceId taskInstanceId);
+    public static TaskNodeReference ForSpawnReference(string spawnReference);
 }
 
 public sealed record TaskInstanceDependency(
@@ -146,7 +145,7 @@ Important current validation rules:
 - dependency cycles are rejected
 - `MaxConcurrency`, when provided, must be positive
 - `TaskSpecification.InputJson` requires `InputType`
-- the engine derives initial instance count from cardinality
+- the engine derives initial runtime materialization from cardinality
 
 Current engine mapping:
 
@@ -369,7 +368,7 @@ Current enforced rules include:
 public sealed record WorkflowGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
-    IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
+    IReadOnlyCollection<TaskSpawnRequest> TaskSpawnRequests,
     IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies)
 {
     public static WorkflowGraphChanges None { get; }
@@ -557,7 +556,7 @@ The preferred public model is:
 
 - declare fixed singleton specifications with `TaskCardinality.Singleton`
 - declare dynamic families with `TaskCardinality.ZeroToMany`
-- materialize runtime instances of those dynamic specifications with `TaskSpecificationSpawn`
+- materialize runtime instances of those dynamic specifications with `TaskSpawnRequest`
 
 ```csharp
 WorkflowSpecification specification = new WorkflowSpecification(
@@ -588,10 +587,10 @@ At runtime, `DiscoverFiles` can materialize extraction instances like this:
 
 ```csharp
 return TaskExecutionResult.Succeeded(
-    spawnedTaskSpecifications:
+    taskSpawnRequests:
     [
-        new TaskSpecificationSpawn(
-            SpawnKey: "extract-1",
+        new TaskSpawnRequest(
+            SpawnReference: "extract-1",
             TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"filePath\": \"a.mp4\" }")
@@ -599,8 +598,8 @@ return TaskExecutionResult.Succeeded(
     addedInstanceDependencies:
     [
         new TaskInstanceDependency(
-            Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
-            Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
+            Prerequisite: TaskNodeReference.ForSpawnReference("extract-1"),
+            Dependent: TaskNodeReference.ForTaskSpecification(new TaskSpecificationId("GenerateMetadataReport")))
     ]);
 ```
 
@@ -666,10 +665,10 @@ When you spawn runtime instances from specifications, prefer `TaskInstanceDepend
 
 ```csharp
 return TaskExecutionResult.Succeeded(
-    spawnedTaskSpecifications:
+    taskSpawnRequests:
     [
-        new TaskSpecificationSpawn(
-            SpawnKey: "extract-1",
+        new TaskSpawnRequest(
+            SpawnReference: "extract-1",
             TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
             InputType: new InputType("application/json"),
             InputJson: "{ \"filePath\": \"a.mp4\" }")
@@ -677,11 +676,11 @@ return TaskExecutionResult.Succeeded(
     addedInstanceDependencies:
     [
         new TaskInstanceDependency(
-            Prerequisite: TaskNodeReference.TaskInstance(executionContext.TaskInstanceId),
-            Dependent: TaskNodeReference.SpawnedTask("extract-1")),
+            Prerequisite: TaskNodeReference.ForTaskInstance(executionContext.TaskInstanceId),
+            Dependent: TaskNodeReference.ForSpawnReference("extract-1")),
         new TaskInstanceDependency(
-            Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
-                Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
+            Prerequisite: TaskNodeReference.ForSpawnReference("extract-1"),
+                Dependent: TaskNodeReference.ForTaskSpecification(new TaskSpecificationId("GenerateMetadataReport")))
     ]);
 ```
 
@@ -697,9 +696,9 @@ foreach (TaskSpecification spawnedTask in result.GraphChanges.SpawnedTasks)
     Console.WriteLine($"spawned: {spawnedTask.TaskSpecificationId}");
 }
 
-foreach (TaskSpecificationSpawn spawnedSpecification in result.GraphChanges.SpawnedTaskSpecifications)
+foreach (TaskSpawnRequest taskSpawnRequest in result.GraphChanges.TaskSpawnRequests)
 {
-    Console.WriteLine($"spawned from specification: {spawnedSpecification.TaskSpecificationId} with key {spawnedSpecification.SpawnKey}");
+    Console.WriteLine($"task spawn request: {taskSpawnRequest.TaskSpecificationId} with reference {taskSpawnRequest.SpawnReference}");
 }
 
 foreach (TaskDependencySpecification dependency in result.GraphChanges.AddedDependencies)

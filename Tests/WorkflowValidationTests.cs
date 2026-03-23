@@ -92,7 +92,6 @@ public class WorkflowValidationTests
             TaskType: new TaskType("SingletonTask"));
 
         Assert.Equal(TaskCardinality.Singleton, specification.Cardinality);
-        Assert.Equal(1, specification.InitialInstanceCount);
     }
 
     [Fact]
@@ -104,7 +103,6 @@ public class WorkflowValidationTests
             Cardinality: TaskCardinality.ZeroToMany);
 
         Assert.Equal(TaskCardinality.ZeroToMany, specification.Cardinality);
-        Assert.Equal(0, specification.InitialInstanceCount);
     }
 
     [Fact]

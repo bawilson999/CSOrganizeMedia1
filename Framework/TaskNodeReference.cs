@@ -2,12 +2,12 @@ namespace OrganizeMedia.Framework;
 
 public sealed record TaskNodeReference
 {
-    private TaskNodeReference(TaskSpecificationId? taskSpecificationId, TaskInstanceId? taskInstanceId, string? spawnKey)
+    private TaskNodeReference(TaskSpecificationId? taskSpecificationId, TaskInstanceId? taskInstanceId, string? spawnReference)
     {
         int populatedReferenceCount =
             (taskSpecificationId is not null ? 1 : 0) +
             (taskInstanceId is not null ? 1 : 0) +
-            (string.IsNullOrWhiteSpace(spawnKey) ? 0 : 1);
+            (string.IsNullOrWhiteSpace(spawnReference) ? 0 : 1);
 
         if (populatedReferenceCount != 1)
         {
@@ -16,27 +16,27 @@ public sealed record TaskNodeReference
 
         TaskSpecificationId = taskSpecificationId;
         TaskInstanceId = taskInstanceId;
-        SpawnKey = spawnKey;
+        SpawnReference = spawnReference;
     }
 
     public TaskSpecificationId? TaskSpecificationId { get; }
 
     public TaskInstanceId? TaskInstanceId { get; }
 
-    public string? SpawnKey { get; }
+    public string? SpawnReference { get; }
 
-    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId)
+    public static TaskNodeReference ForTaskSpecification(TaskSpecificationId taskSpecificationId)
     {
         return new TaskNodeReference(taskSpecificationId, null, null);
     }
 
-    public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId)
+    public static TaskNodeReference ForTaskInstance(TaskInstanceId taskInstanceId)
     {
         return new TaskNodeReference(null, taskInstanceId, null);
     }
 
-    public static TaskNodeReference SpawnedTask(string spawnKey)
+    public static TaskNodeReference ForSpawnReference(string spawnReference)
     {
-        return new TaskNodeReference(null, null, spawnKey);
+        return new TaskNodeReference(null, null, spawnReference);
     }
 }

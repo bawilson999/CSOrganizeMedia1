@@ -113,12 +113,12 @@ public sealed record TaskExecutionResult
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
-        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications = null,
+        IReadOnlyCollection<TaskSpawnRequest>? taskSpawnRequests = null,
         IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies = null)
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
-            graphChanges: WorkflowGraphChanges.Create(spawnedTasks, addedDependencies, spawnedTaskSpecifications, addedInstanceDependencies),
+            graphChanges: WorkflowGraphChanges.Create(spawnedTasks, addedDependencies, taskSpawnRequests, addedInstanceDependencies),
             output: output);
     }
 

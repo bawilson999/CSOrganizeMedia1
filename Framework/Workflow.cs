@@ -40,7 +40,14 @@ public class Workflow
         {
             workflow.RegisterTaskSpecification(taskSpecification);
 
-            for (int instanceIndex = 0; instanceIndex < taskSpecification.InitialInstanceCount; instanceIndex++)
+            int initialInstanceCount = taskSpecification.Cardinality switch
+            {
+                TaskCardinality.Singleton => 1,
+                TaskCardinality.ZeroToMany => 0,
+                _ => throw new ArgumentOutOfRangeException(nameof(taskSpecification.Cardinality), taskSpecification.Cardinality, "Unsupported task cardinality.")
+            };
+
+            for (int instanceIndex = 0; instanceIndex < initialInstanceCount; instanceIndex++)
             {
                 Task task = workflow.CreateTask(taskSpecification);
                 workflow.AddTask(task);
@@ -308,14 +315,14 @@ public class Workflow
         WorkflowGraphChanges graphChanges = executionResult.GraphChanges;
         IReadOnlyCollection<TaskSpecification> spawnedTasks = graphChanges.SpawnedTasks;
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = graphChanges.AddedDependencies;
-        IReadOnlyCollection<TaskSpecificationSpawn> spawnedTaskSpecifications = graphChanges.SpawnedTaskSpecifications;
+        IReadOnlyCollection<TaskSpawnRequest> taskSpawnRequests = graphChanges.TaskSpawnRequests;
         IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies = graphChanges.AddedInstanceDependencies;
-        Dictionary<string, Task> spawnedTasksByKey = new Dictionary<string, Task>(StringComparer.Ordinal);
+        Dictionary<string, Task> spawnedTasksByReference = new Dictionary<string, Task>(StringComparer.Ordinal);
 
         AddSpawnedTasks(currentTask, spawnedTasks);
-        AddSpawnedTaskSpecifications(currentTask, spawnedTaskSpecifications, spawnedTasksByKey);
+        AddTaskSpawnRequests(currentTask, taskSpawnRequests, spawnedTasksByReference);
         AddSpecificationDependencies(addedDependencies);
-        AddInstanceDependencies(addedInstanceDependencies, spawnedTasksByKey);
+        AddInstanceDependencies(addedInstanceDependencies, spawnedTasksByReference);
     }
 
     private void AddSpawnedTasks(Task currentTask, IReadOnlyCollection<TaskSpecification> spawnedTasks)
@@ -326,24 +333,24 @@ public class Workflow
         }
     }
 
-    private void AddSpawnedTaskSpecifications(
+    private void AddTaskSpawnRequests(
         Task currentTask,
-        IReadOnlyCollection<TaskSpecificationSpawn> spawnedTaskSpecifications,
-        Dictionary<string, Task> spawnedTasksByKey)
+        IReadOnlyCollection<TaskSpawnRequest> taskSpawnRequests,
+        Dictionary<string, Task> spawnedTasksByReference)
     {
-        foreach (TaskSpecificationSpawn taskSpecificationSpawn in spawnedTaskSpecifications)
+        foreach (TaskSpawnRequest taskSpawnRequest in taskSpawnRequests)
         {
-            if (string.IsNullOrWhiteSpace(taskSpecificationSpawn.SpawnKey))
+            if (string.IsNullOrWhiteSpace(taskSpawnRequest.SpawnReference))
             {
-                throw new InvalidOperationException("Spawned task specifications must provide a non-empty SpawnKey.");
+                throw new InvalidOperationException("Task spawn requests must provide a non-empty SpawnReference.");
             }
 
-            Task spawnedTask = RuntimeSpawnTaskFromSpecification(currentTask, taskSpecificationSpawn);
+            Task spawnedTask = RuntimeSpawnTaskFromSpecification(currentTask, taskSpawnRequest);
 
-            if (!spawnedTasksByKey.TryAdd(taskSpecificationSpawn.SpawnKey, spawnedTask))
+            if (!spawnedTasksByReference.TryAdd(taskSpawnRequest.SpawnReference, spawnedTask))
             {
                 throw new InvalidOperationException(
-                    $"Workflow {WorkflowInstanceId} received duplicate spawned task key {taskSpecificationSpawn.SpawnKey} in one graph change.");
+                    $"Workflow {WorkflowInstanceId} received duplicate task spawn reference {taskSpawnRequest.SpawnReference} in one graph change.");
             }
         }
     }
@@ -358,12 +365,12 @@ public class Workflow
 
     private void AddInstanceDependencies(
         IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies,
-        IReadOnlyDictionary<string, Task> spawnedTasksByKey)
+        IReadOnlyDictionary<string, Task> spawnedTasksByReference)
     {
         foreach (TaskInstanceDependency dependency in addedInstanceDependencies)
         {
-            Task prerequisiteTask = ResolveTaskNodeReference(dependency.Prerequisite, spawnedTasksByKey);
-            Task dependentTask = ResolveTaskNodeReference(dependency.Dependent, spawnedTasksByKey);
+            Task prerequisiteTask = ResolveTaskNodeReference(dependency.Prerequisite, spawnedTasksByReference);
+            Task dependentTask = ResolveTaskNodeReference(dependency.Dependent, spawnedTasksByReference);
             RuntimeAddDependency(prerequisiteTask, dependentTask);
         }
     }
@@ -379,16 +386,16 @@ public class Workflow
         return task;
     }
 
-    private Task RuntimeSpawnTaskFromSpecification(Task currentTask, TaskSpecificationSpawn taskSpecificationSpawn)
+    private Task RuntimeSpawnTaskFromSpecification(Task currentTask, TaskSpawnRequest taskSpawnRequest)
     {
-        if (!_taskSpecificationsById.TryGetValue(taskSpecificationSpawn.TaskSpecificationId, out TaskSpecification? taskSpecification))
+        if (!_taskSpecificationsById.TryGetValue(taskSpawnRequest.TaskSpecificationId, out TaskSpecification? taskSpecification))
         {
             throw new InvalidOperationException(
-            $"Workflow {WorkflowInstanceId} references missing task specification {taskSpecificationSpawn.TaskSpecificationId}.");
+            $"Workflow {WorkflowInstanceId} references missing task specification {taskSpawnRequest.TaskSpecificationId}.");
         }
 
-        InputType? effectiveInputType = taskSpecificationSpawn.InputType ?? taskSpecification.InputType;
-        string? effectiveInputJson = taskSpecificationSpawn.InputJson ?? taskSpecification.InputJson;
+        InputType? effectiveInputType = taskSpawnRequest.InputType ?? taskSpecification.InputType;
+        string? effectiveInputJson = taskSpawnRequest.InputJson ?? taskSpecification.InputJson;
 
         TaskSpecification instanceSpecification = taskSpecification.CreateRuntimeInstanceSpecification(
             effectiveInputType,
@@ -425,7 +432,7 @@ public class Workflow
         NotifyDependencyAdded(prerequisiteTask, dependentTask);
     }
 
-    private Task ResolveTaskNodeReference(TaskNodeReference reference, IReadOnlyDictionary<string, Task> spawnedTasksByKey)
+    private Task ResolveTaskNodeReference(TaskNodeReference reference, IReadOnlyDictionary<string, Task> spawnedTasksByReference)
     {
         ArgumentNullException.ThrowIfNull(reference);
 
@@ -445,13 +452,13 @@ public class Workflow
             return GetRequiredSingleSpecificationTask(reference.TaskSpecificationId.Value);
         }
 
-        if (reference.SpawnKey is not null && spawnedTasksByKey.TryGetValue(reference.SpawnKey, out Task? spawnedTask))
+        if (reference.SpawnReference is not null && spawnedTasksByReference.TryGetValue(reference.SpawnReference, out Task? spawnedTask))
         {
             return spawnedTask;
         }
 
         throw new InvalidOperationException(
-            $"Workflow {WorkflowInstanceId} references missing spawned task key {reference.SpawnKey}.");
+            $"Workflow {WorkflowInstanceId} references missing task spawn reference {reference.SpawnReference}.");
     }
 
     internal IReadOnlyCollection<Task> GetTasks()

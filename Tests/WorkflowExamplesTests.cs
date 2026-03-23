@@ -213,9 +213,9 @@ public class WorkflowExamplesTests
 
         private TaskExecutionResult DiscoverFiles(IExecutionContext executionContext)
         {
-            TaskSpecificationSpawn[] extractSpawns = MetadataRows
-                .Select((row, index) => new TaskSpecificationSpawn(
-                    SpawnKey: $"extract-{index + 1}",
+            TaskSpawnRequest[] extractSpawns = MetadataRows
+                .Select((row, index) => new TaskSpawnRequest(
+                    SpawnReference: $"extract-{index + 1}",
                     TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
                     InputType: new InputType("application/json"),
                     InputJson: $"{{ \"filePath\": \"{row.FilePath}\" }}"))
@@ -225,11 +225,11 @@ public class WorkflowExamplesTests
                 .Select(spawn => new[]
                 {
                     new TaskInstanceDependency(
-                        Prerequisite: TaskNodeReference.TaskInstance(executionContext.TaskInstanceId),
-                        Dependent: TaskNodeReference.SpawnedTask(spawn.SpawnKey)),
+                        Prerequisite: TaskNodeReference.ForTaskInstance(executionContext.TaskInstanceId),
+                        Dependent: TaskNodeReference.ForSpawnReference(spawn.SpawnReference)),
                     new TaskInstanceDependency(
-                        Prerequisite: TaskNodeReference.SpawnedTask(spawn.SpawnKey),
-                        Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
+                        Prerequisite: TaskNodeReference.ForSpawnReference(spawn.SpawnReference),
+                        Dependent: TaskNodeReference.ForTaskSpecification(new TaskSpecificationId("GenerateMetadataReport")))
                 })
                 .SelectMany(pair => pair)
                 .ToArray();
@@ -238,7 +238,7 @@ public class WorkflowExamplesTests
 
             return TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput(discoveredFilesJson),
-                spawnedTaskSpecifications: extractSpawns,
+                taskSpawnRequests: extractSpawns,
                 addedInstanceDependencies: instanceDependencies);
         }
 
@@ -251,19 +251,19 @@ public class WorkflowExamplesTests
             string metadataJson =
                 $"{{ \"filePath\": \"{metadata.FilePath}\", \"fileSize\": {metadata.FileSize}, \"frameCount\": {metadata.FrameCount} }}";
 
-            TaskSpecificationSpawn saveSpawn = new TaskSpecificationSpawn(
-                SpawnKey: $"save-{executionContext.TaskInstanceId.InstanceNumber}",
+            TaskSpawnRequest saveSpawn = new TaskSpawnRequest(
+                SpawnReference: $"save-{executionContext.TaskInstanceId.InstanceNumber}",
                 TaskSpecificationId: new TaskSpecificationId("SaveFileMetadata"),
                 InputType: new InputType("application/json"),
                 InputJson: metadataJson);
 
             TaskInstanceDependency saveDependency = new TaskInstanceDependency(
-                Prerequisite: TaskNodeReference.TaskInstance(executionContext.TaskInstanceId),
-                Dependent: TaskNodeReference.SpawnedTask(saveSpawn.SpawnKey));
+                Prerequisite: TaskNodeReference.ForTaskInstance(executionContext.TaskInstanceId),
+                Dependent: TaskNodeReference.ForSpawnReference(saveSpawn.SpawnReference));
 
             return TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput(metadataJson),
-                spawnedTaskSpecifications: [saveSpawn],
+                taskSpawnRequests: [saveSpawn],
                 addedInstanceDependencies: [saveDependency]);
         }
 

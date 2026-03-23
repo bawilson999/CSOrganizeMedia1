@@ -540,7 +540,7 @@ Required behavior:
 
 The system shall allow a succeeded task result to create additional tasks at runtime.
 
-The preferred consumer-facing path shall allow runtime instance creation from zero-to-many specifications through `TaskSpecificationSpawn`.
+The preferred consumer-facing path shall allow runtime instance creation from zero-to-many specifications through `TaskSpawnRequest`.
 
 ### FR-061 Spawned Task Validation
 

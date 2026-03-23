@@ -8,30 +8,12 @@ public sealed record TaskSpecification
         InputType? InputType = null,
         string? InputJson = null,
         TaskCardinality Cardinality = TaskCardinality.Singleton)
-        : this(
-            TaskSpecificationId,
-            TaskType,
-            InputType,
-            InputJson,
-            Cardinality,
-            GetDefaultInitialInstanceCount(Cardinality))
-    {
-    }
-
-    internal TaskSpecification(
-        TaskSpecificationId TaskSpecificationId,
-        TaskType TaskType,
-        InputType? InputType,
-        string? InputJson,
-        TaskCardinality Cardinality,
-        int InitialInstanceCount)
     {
         this.TaskSpecificationId = TaskSpecificationId;
         this.TaskType = TaskType;
         this.InputType = InputType;
         this.InputJson = InputJson;
         this.Cardinality = Cardinality;
-        this.InitialInstanceCount = InitialInstanceCount;
     }
 
     public TaskSpecificationId TaskSpecificationId { get; }
@@ -44,8 +26,6 @@ public sealed record TaskSpecification
 
     public TaskCardinality Cardinality { get; }
 
-    public int InitialInstanceCount { get; }
-
     internal TaskSpecification CreateRuntimeInstanceSpecification(InputType? inputType, string? inputJson)
     {
         return new TaskSpecification(
@@ -53,8 +33,7 @@ public sealed record TaskSpecification
             TaskType,
             inputType,
             inputJson,
-            TaskCardinality.Singleton,
-            1);
+            TaskCardinality.Singleton);
     }
 
     public void Validate()
@@ -76,32 +55,13 @@ public sealed record TaskSpecification
                 $"Task specification {TaskSpecificationId} must provide InputType when InputJson is present.");
         }
 
-        if (InitialInstanceCount < 0)
+        switch (Cardinality)
         {
-            throw new InvalidOperationException(
-                $"Task specification {TaskSpecificationId} must use a non-negative InitialInstanceCount.");
+            case TaskCardinality.Singleton:
+            case TaskCardinality.ZeroToMany:
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(Cardinality), Cardinality, "Unsupported task cardinality.");
         }
-
-        if (Cardinality == TaskCardinality.Singleton && InitialInstanceCount != 1)
-        {
-            throw new InvalidOperationException(
-                $"Task specification {TaskSpecificationId} must use InitialInstanceCount = 1 when Cardinality is Singleton.");
-        }
-
-        if (Cardinality == TaskCardinality.ZeroToMany && InitialInstanceCount != 0)
-        {
-            throw new InvalidOperationException(
-                $"Task specification {TaskSpecificationId} must use InitialInstanceCount = 0 when Cardinality is ZeroToMany.");
-        }
-    }
-
-    private static int GetDefaultInitialInstanceCount(TaskCardinality cardinality)
-    {
-        return cardinality switch
-        {
-            TaskCardinality.Singleton => 1,
-            TaskCardinality.ZeroToMany => 0,
-            _ => throw new ArgumentOutOfRangeException(nameof(cardinality), cardinality, "Unsupported task cardinality.")
-        };
     }
 }
