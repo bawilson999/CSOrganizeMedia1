@@ -1,4 +1,4 @@
-# DagWorkflow Standalone Project Design
+# DagWorkflow Design
 
 ## Purpose
 
@@ -59,6 +59,23 @@ The declarative model defines what should run.
 
 These types are inputs to the runtime. They are serializable, validation-friendly, and intended to be stable contracts.
 
+### Identity And Type Labels
+
+DagWorkflow uses small value objects instead of plain strings for identity and task metadata labels.
+
+- `WorkflowId`
+- `TaskId`
+- `TaskType`
+- `InputType`
+
+Current semantics:
+
+- `WorkflowId` and `TaskId` are workflow-scoped identifiers.
+- `TaskType` is an open-ended task-kind label, not a closed enum.
+- `InputType` is an open-ended input schema or media-type label, not a closed enum.
+- Conversion from `string` into these value objects is explicit.
+- Conversion from the value object back to `string` is implicit.
+
 ### Runtime Model
 
 The runtime model defines what is happening now.
@@ -72,6 +89,8 @@ The runtime model defines what is happening now.
 
 These types own transitions, validation of state changes, and status snapshots.
 
+`Workflow` and `Task` are public runtime types, but they are not constructed directly by consumers. The implemented design uses specification-driven construction through `Workflow.FromSpecification(...)`, with task and workflow constructors kept internal to the engine.
+
 ### Execution Boundary
 
 The execution boundary defines how task code is invoked.
@@ -79,9 +98,26 @@ The execution boundary defines how task code is invoked.
 - `ITaskExecutor`
 - `IExecutionContext`
 - `TaskExecutionResult`
-- `WorkflowOrchestrator`
 
 This is the seam between orchestration and user-defined work.
+
+`WorkflowOrchestrator`, `TaskGraph`, `ExecutionContext`, and transition helpers are internal implementation details in the current design. They matter architecturally, but they are not part of the consumer-facing execution contract.
+
+### Observability Boundary
+
+The implemented design exposes workflow observability as a first-class public surface.
+
+- `IWorkflowObserver`
+- `TaskTransitionEvent`
+- `WorkflowTransitionEvent`
+- `TaskAddedEvent`
+- `DependencyAddedEvent`
+- `FanInExpandedEvent`
+- `TaskStatusFormatter`
+- `WorkflowStatusFormatter`
+- `TextWriterWorkflowObserver`
+
+This keeps execution pluggable while also making transition and runtime-mutation reporting explicit and testable.
 
 ## Status Model
 
@@ -139,10 +175,16 @@ Recoverability defaults are derived from phase, outcome, and failure kind.
 
 Task and workflow statuses carry serializable payloads:
 
-- `ExecutionOutput Output`
-- `ErrorInfo Error`
+- `ExecutionOutput? Output`
+- `ErrorInfo? Error`
 
 This is preferred over storing raw `Exception` instances on status records.
+
+Additional implementation details in the current design:
+
+- `ExecutionOutput` is an abstract serializable payload with `OutputType` and `ToJson()`.
+- `TextExecutionOutput` is the built-in concrete output type used by the default executor and tests.
+- `ErrorInfo.FromException(Exception? exception)` converts exceptions into serializable error payloads and returns `null` when no exception is present.
 
 The standalone project should keep this design.
 
@@ -181,6 +223,11 @@ Primary types:
 
 Rules belong here, not in external builders.
 
+The current implementation also centralizes shared phase and recoverability rules in internal support types:
+
+- `ExecutionStateCore`
+- `ExecutionTransitionSupport`
+
 ### 3. Orchestration Layer
 
 Owns scheduling and runtime mutation.
@@ -189,6 +236,7 @@ Primary types:
 
 - `WorkflowOrchestrator`
 - `TaskGraph`
+- `ExecutionContext`
 
 Responsibilities:
 
@@ -199,6 +247,8 @@ Responsibilities:
 - apply `TaskExecutionResult`
 - apply runtime mutations such as spawned tasks and fan-in expansion
 
+In the current implementation this layer is entirely internal. Consumers drive execution through `Workflow.RunToCompletion(...)` rather than by interacting with `WorkflowOrchestrator` directly.
+
 ### 4. Extension Layer
 
 Owns user-defined work.
@@ -207,6 +257,7 @@ Primary types:
 
 - `ITaskExecutor`
 - `IExecutionContext`
+- `IWorkflowObserver`
 
 The standalone library should keep this layer narrow so custom task behavior can vary without destabilizing orchestration.
 
@@ -232,9 +283,49 @@ It answers:
 
 This separation prevents task handlers from mutating internal engine state directly while still giving them the information they need to do real work.
 
-## Proposed Public API Shape
+The current implementation also derives `DependencyOutputs` from dependency statuses on demand rather than storing a second mutable output dictionary in the execution context.
 
-The standalone project should expose a compact public surface.
+## Observability Model
+
+DagWorkflow currently treats transition and runtime-mutation reporting as part of the supported public API.
+
+### Observer Contract
+
+Observers receive notifications for:
+
+- task transitions
+- workflow transitions
+- runtime task additions
+- runtime dependency additions
+- runtime fan-in expansion
+
+This is the mechanism now used for console and text output. The earlier graph-display-oriented console snapshot approach has been removed in favor of state-transition observability.
+
+### Built-In Observer And Formatters
+
+The framework currently ships with:
+
+- `TextWriterWorkflowObserver`
+- `TaskStatusFormatter`
+- `WorkflowStatusFormatter`
+
+`TextWriterWorkflowObserver` formats task and workflow transitions through the formatter types and writes mutation events as plain text lines.
+
+## Implemented Public API Shape
+
+The current framework exposes a compact public surface, with orchestration kept internal and consumers entering through specifications, execution interfaces, statuses, observers, and convenience utilities.
+
+### Value Objects
+
+```csharp
+public readonly record struct WorkflowId(string Value);
+
+public readonly record struct TaskId(string Value);
+
+public readonly record struct TaskType(string Value);
+
+public readonly record struct InputType(string Value);
+```
 
 ### Specifications
 
@@ -249,7 +340,7 @@ public record TaskSpecification(
     TaskId TaskId,
     TaskType TaskType,
     InputType? InputType = null,
-    string InputJson = null,
+    string? InputJson = null,
     TaskId? SpawnedByTaskId = null);
 
 public readonly record struct TaskDependencySpecification(
@@ -258,7 +349,7 @@ public readonly record struct TaskDependencySpecification(
 
 public record TaskFanInSpecification(
     TaskId JoinTaskId,
-    IReadOnlyCollection<TaskId> AdditionalPrerequisiteTaskIds = null,
+    IReadOnlyCollection<TaskId>? AdditionalPrerequisiteTaskIds = null,
     bool IncludeSpawnedTasks = true);
 ```
 
@@ -279,24 +370,148 @@ public interface ITaskExecutor
     TaskExecutionResult Execute(IExecutionContext executionContext);
 }
 
-public record TaskExecutionResult(
-    ExecutionOutcome ExecutionOutcome,
+public sealed record TaskRuntimeMutations(
+    IReadOnlyCollection<TaskSpecification> SpawnedTasks,
+    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
+    IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications);
+
+public sealed record TaskExecutionResult
+{
+    public ExecutionOutcome ExecutionOutcome { get; }
+    public ExecutionFailureKind FailureKind { get; }
+    public ExecutionOutput? Output { get; }
+    public ErrorInfo? Error { get; }
+    public ExecutionRecoverability? Recoverability { get; }
+    public TaskRuntimeMutations? RuntimeMutations { get; }
+
+    public IReadOnlyCollection<TaskSpecification> SpawnedTasks { get; }
+    public IReadOnlyCollection<TaskDependencySpecification> AddedDependencies { get; }
+    public IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications { get; }
+
+    public static TaskExecutionResult Succeeded(
+        ExecutionOutput? output = null,
+        IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
+        IReadOnlyCollection<TaskFanInSpecification>? fanInSpecifications = null);
+
+    public static TaskExecutionResult Canceled(
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
+        ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable);
+
+    public static TaskExecutionResult Failed(
+        ExecutionFailureKind failureKind,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
+        ExecutionRecoverability? recoverability = null);
+}
+```
+
+Implementation notes for `TaskExecutionResult`:
+
+- success results may carry runtime mutations
+- canceled and failed results may not carry runtime mutations
+- succeeded results may not carry a failure kind or explicit recoverability
+- failed results must carry a non-`None` `ExecutionFailureKind`
+- canceled and failed results must use terminal recoverability values when one is specified
+
+### Observability
+
+```csharp
+public interface IWorkflowObserver
+{
+    void OnTaskTransition(TaskTransitionEvent transitionEvent);
+    void OnWorkflowTransition(WorkflowTransitionEvent transitionEvent);
+    void OnTaskAdded(TaskAddedEvent taskAddedEvent);
+    void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent);
+    void OnFanInExpanded(FanInExpandedEvent fanInExpandedEvent);
+}
+
+public static class TaskStatusFormatter
+{
+    public static string Format(WorkflowId workflowId, TaskId taskId, TaskStatus status);
+}
+
+public static class WorkflowStatusFormatter
+{
+    public static string Format(WorkflowId workflowId, WorkflowStatus status);
+}
+
+public sealed class TextWriterWorkflowObserver : IWorkflowObserver;
+```
+
+### Status And Output Types
+
+```csharp
+public abstract record ExecutionOutput
+{
+    public virtual string OutputType { get; }
+    public string ToJson();
+}
+
+public record TextExecutionOutput(string Value) : ExecutionOutput;
+
+public record ErrorInfo(
+    string Type,
+    string Message,
+    string? StackTrace = null,
+    string? Source = null,
+    string? HelpLink = null,
+    Dictionary<string, string?>? Data = null,
+    ErrorInfo? InnerError = null);
+
+public record TaskStatus(
+    WorkflowId WorkflowId,
+    TaskId TaskId,
+    ExecutionPhase ExecutionPhase = ExecutionPhase.NotStarted,
+    ExecutionOutcome ExecutionOutcome = ExecutionOutcome.Pending,
     ExecutionFailureKind FailureKind = ExecutionFailureKind.None,
-    ExecutionOutput Output = null,
-    ErrorInfo Error = null,
-    ExecutionRecoverability? Recoverability = null,
-    IReadOnlyCollection<TaskSpecification> SpawnedTasks = null,
-    IReadOnlyCollection<TaskDependencySpecification> AddedDependencies = null,
-    IReadOnlyCollection<TaskFanInSpecification> FanInSpecifications = null);
+    ExecutionRecoverability Recoverability = ExecutionRecoverability.AwaitingOutcome,
+    int TotalSteps = 1,
+    int CompletedSteps = 0,
+    ErrorInfo? Error = null,
+    ExecutionOutput? Output = null,
+    DateTime? Timestamp = null,
+    DateTime? CreatedTimestamp = null,
+    DateTime? QueuedTimestamp = null,
+    DateTime? ReadyToRunTimestamp = null,
+    DateTime? RunningTimestamp = null,
+    DateTime? FinishedTimestamp = null);
+
+public record WorkflowStatus(
+    WorkflowId WorkflowId,
+    ExecutionPhase ExecutionPhase,
+    ExecutionOutcome ExecutionOutcome,
+    ExecutionFailureKind FailureKind,
+    ExecutionRecoverability Recoverability,
+    Dictionary<TaskId, TaskStatus> TaskStatuses,
+    ErrorInfo? Error = null,
+    ExecutionOutput? Output = null,
+    DateTime? Timestamp = null,
+    DateTime? CreatedTimestamp = null,
+    DateTime? QueuedTimestamp = null,
+    DateTime? ReadyToRunTimestamp = null,
+    DateTime? RunningTimestamp = null,
+    DateTime? FinishedTimestamp = null);
 ```
 
 ### Runtime Entry Point
 
 ```csharp
 Workflow workflow = Workflow.FromSpecification(specification);
-workflow.RunToCompletion(taskExecutor);
+workflow.RunToCompletion(
+    taskExecutor,
+    observer: new TextWriterWorkflowObserver(Console.Out));
+
 WorkflowStatus status = workflow.Status;
 ```
+
+Current runtime entry semantics:
+
+- `Workflow.FromSpecification(...)` is the public construction path
+- `Workflow.RunToCompletion(...)` accepts an optional executor and optional observer
+- omitting the executor uses `DefaultTaskExecutor`
+- omitting the observer uses the built-in null observer
 
 ## Example Use Cases
 
@@ -338,12 +553,12 @@ WorkflowSpecification specification = new WorkflowSpecification(
     },
     Dependencies: new[]
     {
-        new TaskDependencySpecification("A", "B"),
-        new TaskDependencySpecification("A", "C"),
-        new TaskDependencySpecification("B", "D"),
-        new TaskDependencySpecification("C", "E"),
-        new TaskDependencySpecification("D", "F"),
-        new TaskDependencySpecification("E", "F")
+        new TaskDependencySpecification(new TaskId("A"), new TaskId("B")),
+        new TaskDependencySpecification(new TaskId("A"), new TaskId("C")),
+        new TaskDependencySpecification(new TaskId("B"), new TaskId("D")),
+        new TaskDependencySpecification(new TaskId("C"), new TaskId("E")),
+        new TaskDependencySpecification(new TaskId("D"), new TaskId("F")),
+        new TaskDependencySpecification(new TaskId("E"), new TaskId("F"))
     },
     MaxConcurrency: 2);
 ```
@@ -471,7 +686,7 @@ Rules:
 
 ### Fan-Out
 
-A task may return `SpawnedTasks` in `TaskExecutionResult`.
+A task may return `SpawnedTasks` in `TaskExecutionResult.Succeeded(...)`.
 
 Each spawned task is:
 
@@ -481,7 +696,7 @@ Each spawned task is:
 
 ### Fan-In
 
-A task may return one or more `TaskFanInSpecification` values.
+A task may return one or more `TaskFanInSpecification` values from `TaskExecutionResult.Succeeded(...)`.
 
 The orchestrator expands each fan-in declaration into concrete dependencies against:
 
@@ -489,6 +704,8 @@ The orchestrator expands each fan-in declaration into concrete dependencies agai
 - any explicit `AdditionalPrerequisiteTaskIds`
 
 This keeps the common join pattern compact and expressive.
+
+The current implementation groups these three mutation collections under `TaskRuntimeMutations`, while still exposing `SpawnedTasks`, `AddedDependencies`, and `FanInSpecifications` as convenience properties on `TaskExecutionResult`.
 
 ## Persistence Direction
 
@@ -527,13 +744,17 @@ src/
   DagWorkflow.Abstractions/
     WorkflowId.cs
     TaskId.cs
+    TaskType.cs
+    InputType.cs
     WorkflowSpecification.cs
     TaskSpecification.cs
     TaskDependencySpecification.cs
     TaskFanInSpecification.cs
     IExecutionContext.cs
     ITaskExecutor.cs
+    IWorkflowObserver.cs
     TaskExecutionResult.cs
+    TaskRuntimeMutations.cs
     ExecutionOutput.cs
     ErrorInfo.cs
     ExecutionPhase.cs
@@ -542,6 +763,13 @@ src/
     ExecutionRecoverability.cs
     TaskStatus.cs
     WorkflowStatus.cs
+    TaskTransitionEvent.cs
+    WorkflowTransitionEvent.cs
+    TaskAddedEvent.cs
+    DependencyAddedEvent.cs
+    FanInExpandedEvent.cs
+    TaskStatusFormatter.cs
+    WorkflowStatusFormatter.cs
 
   DagWorkflow.Core/
     Workflow.cs
@@ -551,10 +779,13 @@ src/
     TaskGraph.cs
     WorkflowOrchestrator.cs
     ExecutionContext.cs
+    ExecutionStateCore.cs
+    ExecutionTransitionSupport.cs
     ExecutionRecoverabilityDefaults.cs
 
   DagWorkflow.Defaults/
     DefaultTaskExecutor.cs
+    TextWriterWorkflowObserver.cs
 
 tests/
   DagWorkflow.Core.Tests/
@@ -585,6 +816,7 @@ The standalone project should include tests for the following behaviors.
 - invalid phase transitions rejected
 - failed states require non-`None` `ExecutionFailureKind`
 - recoverability defaults derived correctly
+- non-success task results reject runtime mutations
 
 ### Static Execution
 
@@ -598,6 +830,13 @@ The standalone project should include tests for the following behaviors.
 - dynamic dependency additions are validated
 - fan-in expands into correct concrete edges
 - join task remains blocked until all fan-in prerequisites finish
+
+### Observability
+
+- task transitions are emitted through `IWorkflowObserver`
+- workflow transitions are emitted through `IWorkflowObserver`
+- runtime mutation events are emitted for task additions, dependency additions, and fan-in expansion
+- formatter output remains stable for task and workflow status lines
 
 ### Concurrency Controls
 
