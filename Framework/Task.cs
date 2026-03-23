@@ -4,12 +4,12 @@ public class Task
 {
     private IWorkflowObserver _observer;
 
-    public Task(WorkflowId workflowId, TaskId taskId)
+    internal Task(WorkflowId workflowId, TaskId taskId)
         : this(workflowId, new TaskSpecification(taskId, TaskType: "Task"))
     {
     }
 
-    public Task(WorkflowId workflowId, TaskSpecification specification)
+    internal Task(WorkflowId workflowId, TaskSpecification specification)
         : this(workflowId, specification, new TaskExecutionState(workflowId, specification.TaskId))
     {
     }
