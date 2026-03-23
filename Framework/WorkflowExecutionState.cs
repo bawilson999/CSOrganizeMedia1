@@ -2,7 +2,7 @@ namespace OrganizeMedia.Framework;
 
 internal sealed class WorkflowExecutionState : ExecutionStateCore
 {
-    private Dictionary<TaskId, TaskExecutionState> _taskExecutionStates;
+    private readonly Dictionary<TaskId, TaskExecutionState> _taskExecutionStates;
 
     internal WorkflowExecutionState(WorkflowId workflowId)
         : base(workflowId)

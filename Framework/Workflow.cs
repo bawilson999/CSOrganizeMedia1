@@ -2,9 +2,9 @@ namespace OrganizeMedia.Framework;
 
 public class Workflow
 {
-    TaskGraph _taskGraph = null;
-    WorkflowExecutionState _executionState = null;
-    Dictionary<TaskId, Task> _tasksById = null;
+    private readonly TaskGraph _taskGraph;
+    private readonly WorkflowExecutionState _executionState;
+    private readonly Dictionary<TaskId, Task> _tasksById;
     private IWorkflowObserver _observer = NullWorkflowObserver.Instance;
 
     public Workflow(WorkflowId workflowId)
@@ -52,8 +52,7 @@ public class Workflow
 
     public string ToDisplayString()
     {
-        var status = Status;
-        return $"/{WorkflowId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
+        return ExecutionDisplayFormatter.FormatWorkflowStatus(WorkflowId, Status);
     }
 
     private void MarkReadyToRun()

@@ -42,8 +42,7 @@ public class Task
 
     public string ToDisplayString()
     {
-        var status = Status;
-        return $"/{WorkflowId}/{TaskId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
+        return ExecutionDisplayFormatter.FormatTaskStatus(WorkflowId, TaskId, Status);
     }
 
     internal bool IsCompleteForWorkflowSuccess()

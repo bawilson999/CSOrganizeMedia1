@@ -14,15 +14,18 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
     public void OnTaskTransition(TaskTransitionEvent transitionEvent)
     {
         ArgumentNullException.ThrowIfNull(transitionEvent);
-        _writer.WriteLine(
-            $"/{transitionEvent.WorkflowId}/{transitionEvent.TaskId} {transitionEvent.CurrentStatus.ExecutionPhase}, {transitionEvent.CurrentStatus.ExecutionOutcome}, {transitionEvent.CurrentStatus.FailureKind}, {transitionEvent.CurrentStatus.Recoverability}");
+        _writer.WriteLine(ExecutionDisplayFormatter.FormatTaskStatus(
+            transitionEvent.WorkflowId,
+            transitionEvent.TaskId,
+            transitionEvent.CurrentStatus));
     }
 
     public void OnWorkflowTransition(WorkflowTransitionEvent transitionEvent)
     {
         ArgumentNullException.ThrowIfNull(transitionEvent);
-        _writer.WriteLine(
-            $"/{transitionEvent.WorkflowId} {transitionEvent.CurrentStatus.ExecutionPhase}, {transitionEvent.CurrentStatus.ExecutionOutcome}, {transitionEvent.CurrentStatus.FailureKind}, {transitionEvent.CurrentStatus.Recoverability}");
+        _writer.WriteLine(ExecutionDisplayFormatter.FormatWorkflowStatus(
+            transitionEvent.WorkflowId,
+            transitionEvent.CurrentStatus));
     }
 
     public void OnTaskAdded(TaskAddedEvent taskAddedEvent)
