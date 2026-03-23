@@ -71,7 +71,7 @@ internal sealed class WorkflowOrchestrator
                     return;
                 }
 
-                workflow.ApplyRuntimeMutations(currentTask, executionResult);
+                workflow.ApplyGraphChanges(currentTask, executionResult);
 
                 currentTask = null;
             }

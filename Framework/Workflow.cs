@@ -195,14 +195,14 @@ public class Workflow
         _taskGraph.AddAdjacency(task, adjacentTask);
     }
 
-    internal void ApplyRuntimeMutations(Task currentTask, TaskExecutionResult executionResult)
+    internal void ApplyGraphChanges(Task currentTask, TaskExecutionResult executionResult)
     {
         ArgumentNullException.ThrowIfNull(currentTask);
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        TaskRuntimeMutations runtimeMutations = executionResult.RuntimeMutations;
-        IReadOnlyCollection<TaskSpecification> spawnedTasks = runtimeMutations.SpawnedTasks;
-        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = runtimeMutations.AddedDependencies;
+        TaskGraphChanges graphChanges = executionResult.GraphChanges;
+        IReadOnlyCollection<TaskSpecification> spawnedTasks = graphChanges.SpawnedTasks;
+        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = graphChanges.AddedDependencies;
 
         foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
         {

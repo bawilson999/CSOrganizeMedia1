@@ -4,21 +4,21 @@ public sealed record TaskExecutionResult
 {
     private TaskExecutionResult(
         ExecutionOutcome executionOutcome,
-        TaskRuntimeMutations runtimeMutations,
+        TaskGraphChanges graphChanges,
         ExecutionFailureKind failureKind = ExecutionFailureKind.None,
         ExecutionOutput? output = null,
         ErrorInfo? error = null,
         ExecutionRecoverability? recoverability = null)
     {
-        ArgumentNullException.ThrowIfNull(runtimeMutations);
-        Validate(executionOutcome, failureKind, recoverability, runtimeMutations);
+        ArgumentNullException.ThrowIfNull(graphChanges);
+        Validate(executionOutcome, failureKind, recoverability, graphChanges);
 
         ExecutionOutcome = executionOutcome;
         FailureKind = failureKind;
         Output = output;
         Error = error;
         Recoverability = recoverability;
-        RuntimeMutations = runtimeMutations;
+        GraphChanges = graphChanges;
     }
 
     public ExecutionOutcome ExecutionOutcome { get; }
@@ -31,13 +31,13 @@ public sealed record TaskExecutionResult
 
     public ExecutionRecoverability? Recoverability { get; }
 
-    public TaskRuntimeMutations RuntimeMutations { get; }
+    public TaskGraphChanges GraphChanges { get; }
 
     private static void Validate(
         ExecutionOutcome executionOutcome,
         ExecutionFailureKind failureKind,
         ExecutionRecoverability? recoverability,
-        TaskRuntimeMutations runtimeMutations)
+        TaskGraphChanges graphChanges)
     {
         switch (executionOutcome)
         {
@@ -101,11 +101,11 @@ public sealed record TaskExecutionResult
                     "Task execution results must use a supported terminal outcome.");
         }
 
-        if (executionOutcome != ExecutionOutcome.Succeeded && runtimeMutations != TaskRuntimeMutations.None)
+        if (executionOutcome != ExecutionOutcome.Succeeded && graphChanges != TaskGraphChanges.None)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(runtimeMutations),
-                "Only succeeded task results can carry non-empty runtime mutations.");
+            nameof(graphChanges),
+            "Only succeeded task results can carry non-empty graph changes.");
         }
     }
 
@@ -116,7 +116,7 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
-            runtimeMutations: CreateRuntimeMutations(spawnedTasks, addedDependencies),
+            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies),
             output: output);
     }
 
@@ -127,7 +127,7 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Canceled,
-            runtimeMutations: TaskRuntimeMutations.None,
+            graphChanges: TaskGraphChanges.None,
             output: output,
             error: error,
             recoverability: recoverability);
@@ -141,23 +141,23 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Failed,
-            runtimeMutations: TaskRuntimeMutations.None,
+            graphChanges: TaskGraphChanges.None,
             failureKind: failureKind,
             output: output,
             error: error,
             recoverability: recoverability);
     }
 
-    private static TaskRuntimeMutations CreateRuntimeMutations(
+    private static TaskGraphChanges CreateGraphChanges(
         IReadOnlyCollection<TaskSpecification>? spawnedTasks,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies)
     {
         if (IsNullOrEmpty(spawnedTasks) && IsNullOrEmpty(addedDependencies))
         {
-            return TaskRuntimeMutations.None;
+            return TaskGraphChanges.None;
         }
 
-        return new TaskRuntimeMutations(
+        return new TaskGraphChanges(
             SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
             AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>());
     }

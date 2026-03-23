@@ -9,7 +9,7 @@ It focuses on the public API that exists today:
 - defining workflows with specifications
 - running workflows with the built-in executor or a custom executor
 - reading workflow and task status
-- observing transitions and runtime mutations
+- observing transitions and runtime graph changes
 - using dynamic task spawning and runtime dependency addition
 
 This is a developer guide, not an internal architecture document. It is written against the implemented code in this repository.
@@ -22,7 +22,7 @@ DagWorkflow is a synchronous DAG workflow engine with these core capabilities:
 2. Dynamic task creation at runtime.
 3. Runtime dependency addition.
 4. Rich task and workflow status snapshots.
-5. Observer-based transition and mutation reporting.
+5. Observer-based transition and graph-change reporting.
 6. A small executor interface that lets you plug in your own task behavior.
 
 The public entry point is simple:
@@ -291,12 +291,12 @@ Current enforced rules include:
 - succeeded results cannot carry explicit recoverability
 - failed results must use `Transient`, `Permanent`, or `Unknown`
 - canceled results cannot carry a failure kind
-- runtime mutations are only allowed on succeeded results
+- graph changes are only allowed on succeeded results
 - canceled and failed results must use terminal recoverability values when one is specified
 
 ## Observing Execution
 
-DagWorkflow uses observers for transition and mutation reporting.
+DagWorkflow uses observers for transition and graph-change reporting.
 
 ### Built-In Text Observer
 
@@ -314,7 +314,7 @@ The built-in text observer writes lines like these:
 ```text
 /W0 ReadyToRun, Pending, None, AwaitingOutcome
 /W0/A Running, Pending, None, AwaitingOutcome
-/W0/B added by runtime mutation
+/W0/B added by runtime graph change
 /W0 dependency added: A -> B
 ```
 
@@ -489,19 +489,19 @@ If you need additional prerequisites, add them explicitly:
 new TaskDependencySpecification(new TaskId("AUX"), new TaskId("C"))
 ```
 
-### Inspecting Runtime Mutations
+### Inspecting Graph Changes
 
-`TaskExecutionResult.RuntimeMutations` is always present. Results without runtime graph changes use `TaskRuntimeMutations.None`.
+`TaskExecutionResult.GraphChanges` is always present. Results without runtime graph changes use `TaskGraphChanges.None`.
 
 ```csharp
 TaskExecutionResult result = executor.Execute(executionContext);
 
-foreach (TaskSpecification spawnedTask in result.RuntimeMutations.SpawnedTasks)
+foreach (TaskSpecification spawnedTask in result.GraphChanges.SpawnedTasks)
 {
     Console.WriteLine($"spawned: {spawnedTask.TaskId}");
 }
 
-foreach (TaskDependencySpecification dependency in result.RuntimeMutations.AddedDependencies)
+foreach (TaskDependencySpecification dependency in result.GraphChanges.AddedDependencies)
 {
     Console.WriteLine($"dependency: {dependency.PrerequisiteTaskId} -> {dependency.DependentTaskId}");
 }
@@ -530,7 +530,7 @@ Workflow workflow = Workflow.FromSpecification(specification);
 workflow.RunToCompletion(new Mp4TaskExecutor());
 ```
 
-### Runtime Mutation Rules
+### Graph Change Rules
 
 Current runtime rules include:
 
@@ -539,7 +539,7 @@ Current runtime rules include:
 - runtime dependencies cannot duplicate existing dependencies
 - runtime dependencies cannot create cycles
 - runtime dependencies can only target tasks that have not started execution
-- runtime mutations are only applied for succeeded task results
+- graph changes are only applied for succeeded task results
 
 ## DefaultTaskExecutor
 
@@ -605,7 +605,7 @@ That means your executor owns:
 
 ### Use Observers For Logging Instead Of Ad Hoc Graph Dumps
 
-The framework now uses transition and mutation observability instead of graph-display helpers. If you want console output, prefer:
+The framework now uses transition and graph-change observability instead of graph-display helpers. If you want console output, prefer:
 
 ```csharp
 workflow.RunToCompletion(observer: new TextWriterWorkflowObserver(Console.Out));
@@ -636,11 +636,11 @@ IReadOnlyDictionary<TaskId, ExecutionOutput?>
 
 If your executor requires an output from a dependency, validate or assert it explicitly.
 
-### 3. Returning Runtime Mutations From Failed Or Canceled Results
+### 3. Returning Graph Changes From Failed Or Canceled Results
 
 This is rejected by `TaskExecutionResult` validation.
 
-Runtime mutations belong only on succeeded results.
+Graph changes belong only on succeeded results.
 
 ### 4. Treating MaxConcurrency As True Parallelism
 

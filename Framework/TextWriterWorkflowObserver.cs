@@ -31,7 +31,7 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
     public void OnTaskAdded(TaskAddedEvent taskAddedEvent)
     {
         ArgumentNullException.ThrowIfNull(taskAddedEvent);
-        _writer.WriteLine($"/{taskAddedEvent.WorkflowId}/{taskAddedEvent.TaskId} added by runtime mutation");
+        _writer.WriteLine($"/{taskAddedEvent.WorkflowId}/{taskAddedEvent.TaskId} added by runtime graph change");
     }
 
     public void OnDependencyAdded(DependencyAddedEvent dependencyAddedEvent)

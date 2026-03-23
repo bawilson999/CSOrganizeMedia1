@@ -227,7 +227,7 @@ The current implementation also centralizes shared phase and recoverability rule
 
 ### 3. Orchestration Layer
 
-Owns scheduling and runtime mutation.
+Owns scheduling and runtime graph changes.
 
 Primary types:
 
@@ -242,7 +242,7 @@ Responsibilities:
 - enforce `MaxConcurrency`
 - execute tasks through `ITaskExecutor`
 - apply `TaskExecutionResult`
-- apply runtime mutations such as spawned tasks and added dependencies
+- apply runtime graph changes such as spawned tasks and added dependencies
 
 In the current implementation this layer is entirely internal. Consumers drive execution through `Workflow.RunToCompletion(...)` rather than by interacting with `WorkflowOrchestrator` directly.
 
@@ -284,7 +284,7 @@ The current implementation also derives `DependencyOutputs` from dependency stat
 
 ## Observability Model
 
-DagWorkflow currently treats transition and runtime-mutation reporting as part of the supported public API.
+DagWorkflow currently treats transition and runtime graph change reporting as part of the supported public API.
 
 ### Observer Contract
 
@@ -305,7 +305,7 @@ The framework currently ships with:
 - `TaskStatusFormatter`
 - `WorkflowStatusFormatter`
 
-`TextWriterWorkflowObserver` formats task and workflow transitions through the formatter types and writes mutation events as plain text lines.
+`TextWriterWorkflowObserver` formats task and workflow transitions through the formatter types and writes graph-change events as plain text lines.
 
 ## Implemented Public API Shape
 
@@ -361,7 +361,7 @@ public interface ITaskExecutor
     TaskExecutionResult Execute(IExecutionContext executionContext);
 }
 
-public sealed record TaskRuntimeMutations(
+public sealed record TaskGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies);
 
@@ -372,7 +372,7 @@ public sealed record TaskExecutionResult
     public ExecutionOutput? Output { get; }
     public ErrorInfo? Error { get; }
     public ExecutionRecoverability? Recoverability { get; }
-    public TaskRuntimeMutations RuntimeMutations { get; }
+    public TaskGraphChanges GraphChanges { get; }
 
     public static TaskExecutionResult Succeeded(
         ExecutionOutput? output = null,
@@ -394,8 +394,8 @@ public sealed record TaskExecutionResult
 
 Implementation notes for `TaskExecutionResult`:
 
-- success results may carry runtime mutations
-- canceled and failed results may not carry runtime mutations
+- success results may carry graph changes
+- canceled and failed results may not carry graph changes
 - succeeded results may not carry a failure kind or explicit recoverability
 - failed results must carry a non-`None` `ExecutionFailureKind`
 - canceled and failed results must use terminal recoverability values when one is specified
@@ -637,7 +637,7 @@ The standalone project should keep the current scheduler semantics and refine th
 3. Dequeue one task at a time into `Running`.
 4. Execute through `ITaskExecutor`.
 5. Apply task result.
-6. Apply any runtime graph mutations.
+6. Apply any graph changes.
 7. Re-scan the live graph for newly ready tasks.
 
 ### MaxConcurrency
@@ -666,9 +666,9 @@ Rules:
 4. Duplicate dependencies are invalid.
 5. New runtime dependencies may not introduce cycles.
 6. Runtime dependencies may only target tasks that have not started yet.
-7. Runtime graph mutations are only allowed on successful task completion.
+7. Graph changes are only allowed on successful task completion.
 
-## Runtime Mutation Model
+## Graph Change Model
 
 ### Task Spawning
 
@@ -686,9 +686,9 @@ A task may return `AddedDependencies` in `TaskExecutionResult.Succeeded(...)`.
 
 These are ordinary `TaskDependencySpecification` values applied to the live graph after the current task succeeds.
 
-The current implementation groups runtime mutation collections under `TaskRuntimeMutations`, which is the single public mutation payload exposed on `TaskExecutionResult`.
+The current implementation groups runtime graph changes under `TaskGraphChanges`, which is the single public graph-change payload exposed on `TaskExecutionResult`.
 
-All task results expose a non-null `RuntimeMutations` payload. Results without mutations use `TaskRuntimeMutations.None`.
+All task results expose a non-null `GraphChanges` payload. Results without graph changes use `TaskGraphChanges.None`.
 
 ## Persistence Direction
 
@@ -736,7 +736,7 @@ src/
     ITaskExecutor.cs
     IWorkflowObserver.cs
     TaskExecutionResult.cs
-    TaskRuntimeMutations.cs
+    TaskGraphChanges.cs
     ExecutionOutput.cs
     ErrorInfo.cs
     ExecutionPhase.cs
@@ -797,7 +797,7 @@ The standalone project should include tests for the following behaviors.
 - invalid phase transitions rejected
 - failed states require non-`None` `ExecutionFailureKind`
 - recoverability defaults derived correctly
-- non-success task results reject runtime mutations
+- non-success task results reject graph changes
 
 ### Static Execution
 
@@ -816,7 +816,7 @@ The standalone project should include tests for the following behaviors.
 
 - task transitions are emitted through `IWorkflowObserver`
 - workflow transitions are emitted through `IWorkflowObserver`
-- runtime mutation events are emitted for task additions and dependency additions
+- graph-change events are emitted for task additions and dependency additions
 - formatter output remains stable for task and workflow status lines
 
 ### Concurrency Controls

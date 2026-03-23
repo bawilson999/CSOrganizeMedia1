@@ -52,7 +52,7 @@ The executor is user-provided code implementing `ITaskExecutor`. It performs tas
 
 ### Observer
 
-The observer is optional user-provided or built-in code implementing `IWorkflowObserver`. It receives workflow and task transition events and runtime mutation events.
+The observer is optional user-provided or built-in code implementing `IWorkflowObserver`. It receives workflow and task transition events and runtime graph change events.
 
 ### Workflow Engine
 
@@ -462,9 +462,9 @@ The system shall allow failed results to carry:
 - optional error
 - optional terminal recoverability override
 
-### FR-050 Runtime Mutation Restriction
+### FR-050 Graph Change Restriction
 
-The system shall reject runtime mutations on non-success results.
+The system shall reject graph changes on non-success results.
 
 ### FR-051 Success Result Validation
 
@@ -578,7 +578,7 @@ The system shall not require asynchronous task execution in the current implemen
 
 ### FR-076 Live Graph Rescan
 
-The system shall rescan the live graph for newly ready tasks after applying each task result and any runtime mutations.
+The system shall rescan the live graph for newly ready tasks after applying each task result and any runtime graph changes.
 
 ## Retry And Rerun Behavior
 
@@ -615,11 +615,11 @@ The system shall notify observers when task phase transitions occur.
 
 ### FR-083 Runtime Task Addition Reporting
 
-The system shall notify observers when runtime mutation adds a task.
+The system shall notify observers when a runtime graph change adds a task.
 
 ### FR-084 Runtime Dependency Addition Reporting
 
-The system shall notify observers when runtime mutation adds a dependency.
+The system shall notify observers when a runtime graph change adds a dependency.
 
 ### FR-085 Built-In Text Observer
 

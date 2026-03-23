@@ -37,7 +37,7 @@ public class WorkflowObserverTests
     }
 
     [Fact]
-    public void RunToCompletion_NotifiesObserverForRuntimeGraphMutations()
+    public void RunToCompletion_NotifiesObserverForRuntimeGraphChanges()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
             WorkflowId: new WorkflowId("ObservedDynamicWorkflow"),
@@ -67,7 +67,7 @@ public class WorkflowObserverTests
     }
 
     [Fact]
-    public void TextWriterWorkflowObserver_WritesExpectedTransitionAndMutationLines()
+    public void TextWriterWorkflowObserver_WritesExpectedTransitionAndGraphChangeLines()
     {
         StringWriter writer = new StringWriter();
         TextWriterWorkflowObserver observer = new TextWriterWorkflowObserver(writer);
@@ -100,7 +100,7 @@ public class WorkflowObserverTests
 
         Assert.Contains("/W0 ReadyToRun, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
         Assert.Contains("/W0/A Running, Pending, None, AwaitingOutcome", output, StringComparison.Ordinal);
-        Assert.Contains("/W0/B added by runtime mutation", output, StringComparison.Ordinal);
+        Assert.Contains("/W0/B added by runtime graph change", output, StringComparison.Ordinal);
         Assert.Contains("/W0 dependency added: A -> B", output, StringComparison.Ordinal);
     }
 

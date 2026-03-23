@@ -9,9 +9,9 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Succeeded();
 
-        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
-        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
-        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Empty(result.GraphChanges.SpawnedTasks);
+        Assert.Empty(result.GraphChanges.AddedDependencies);
     }
 
     [Fact]
@@ -21,9 +21,9 @@ public class WorkflowValidationTests
             spawnedTasks: Array.Empty<TaskSpecification>(),
             addedDependencies: Array.Empty<TaskDependencySpecification>());
 
-        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
-        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
-        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Empty(result.GraphChanges.SpawnedTasks);
+        Assert.Empty(result.GraphChanges.AddedDependencies);
     }
 
     [Fact]
@@ -51,9 +51,9 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Canceled();
 
-        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
-        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
-        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Empty(result.GraphChanges.SpawnedTasks);
+        Assert.Empty(result.GraphChanges.AddedDependencies);
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public class WorkflowValidationTests
     {
         TaskExecutionResult result = TaskExecutionResult.Failed(ExecutionFailureKind.Transient);
 
-        Assert.Same(TaskRuntimeMutations.None, result.RuntimeMutations);
-        Assert.Empty(result.RuntimeMutations.SpawnedTasks);
-        Assert.Empty(result.RuntimeMutations.AddedDependencies);
+        Assert.Same(TaskGraphChanges.None, result.GraphChanges);
+        Assert.Empty(result.GraphChanges.SpawnedTasks);
+        Assert.Empty(result.GraphChanges.AddedDependencies);
     }
 
     [Fact]

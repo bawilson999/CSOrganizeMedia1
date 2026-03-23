@@ -1,10 +1,10 @@
 namespace OrganizeMedia.Framework;
 
-public sealed record TaskRuntimeMutations(
+public sealed record TaskGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies)
 {
-    public static TaskRuntimeMutations None { get; } = new TaskRuntimeMutations(
+    public static TaskGraphChanges None { get; } = new TaskGraphChanges(
         SpawnedTasks: Array.Empty<TaskSpecification>(),
         AddedDependencies: Array.Empty<TaskDependencySpecification>());
 }
