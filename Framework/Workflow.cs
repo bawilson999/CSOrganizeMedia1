@@ -102,6 +102,33 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
+    private void Complete(
+        WorkflowStatus previousStatus,
+        ExecutionOutcome executionOutcome,
+        ExecutionOutput? output,
+        ErrorInfo? error,
+        ExecutionFailureKind failureKind,
+        ExecutionRecoverability? recoverability)
+    {
+        _executionState.ExecutionPhase = ExecutionPhase.Finished;
+        _executionState.ExecutionOutcome = executionOutcome;
+
+        if (executionOutcome == ExecutionOutcome.Failed)
+        {
+            _executionState.FailureKind = failureKind;
+        }
+
+        _executionState.Error = error;
+        _executionState.Output = output;
+
+        if (recoverability is not null)
+        {
+            _executionState.Recoverability = recoverability.Value;
+        }
+
+        NotifyTransition(previousStatus);
+    }
+
     internal void StartExecution()
     {
         MarkReadyToRun();
@@ -117,12 +144,13 @@ public class Workflow
             subjectId: WorkflowInstanceId.ToString(),
             currentPhase: _executionState.ExecutionPhase,
             ExecutionPhase.Running);
-        _executionState.ExecutionPhase = ExecutionPhase.Finished;
-        _executionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
-        _executionState.FailureKind = ExecutionFailureKind.None;
-        _executionState.Error = null;
-        _executionState.Output = output;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Succeeded,
+            output,
+            error: null,
+            failureKind: ExecutionFailureKind.None,
+            recoverability: null);
     }
 
     internal void MarkCanceled(
@@ -141,13 +169,13 @@ public class Workflow
             nameof(recoverability),
             "Canceled workflows must use a terminal recoverability value.");
 
-        _executionState.ExecutionPhase = ExecutionPhase.Finished;
-        _executionState.ExecutionOutcome = ExecutionOutcome.Canceled;
-        _executionState.FailureKind = ExecutionFailureKind.None;
-        _executionState.Error = error;
-        _executionState.Output = output;
-        _executionState.Recoverability = recoverability;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Canceled,
+            output,
+            error,
+            failureKind: ExecutionFailureKind.None,
+            recoverability);
     }
 
     internal void MarkFailed(
@@ -169,13 +197,13 @@ public class Workflow
             invalidFailureKindMessage: "Failed workflows must use a transient, permanent, or unknown failure kind.",
             invalidRecoverabilityMessage: "Failed workflows must use a terminal recoverability value.");
 
-        _executionState.ExecutionPhase = ExecutionPhase.Finished;
-        _executionState.ExecutionOutcome = ExecutionOutcome.Failed;
-        _executionState.FailureKind = failureKind;
-        _executionState.Error = error;
-        _executionState.Output = output;
-        _executionState.Recoverability = effectiveRecoverability;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Failed,
+            output,
+            error,
+            failureKind,
+            effectiveRecoverability);
     }
 
     internal void MarkFailed(
@@ -233,23 +261,7 @@ public class Workflow
             spawnedByTaskInstanceId);
     }
 
-    private Task GetRequiredSingleSpecificationTask(TaskSpecificationId taskSpecificationId)
-    {
-        if (!_tasksBySpecificationId.TryGetValue(taskSpecificationId, out List<Task>? taskInstances) || taskInstances.Count == 0)
-        {
-            throw new InvalidOperationException($"Workflow {WorkflowInstanceId} references missing task specification {taskSpecificationId}.");
-        }
-
-        if (taskInstances.Count != 1)
-        {
-            throw new InvalidOperationException(
-                $"Workflow {WorkflowInstanceId} cannot resolve specification task {taskSpecificationId} to a single runtime instance because {taskInstances.Count} instances exist.");
-        }
-
-        return taskInstances[0];
-    }
-
-    private bool TryGetSingleSpecificationTask(TaskSpecificationId taskSpecificationId, out Task? task)
+    private bool TryResolveSingleSpecificationTask(TaskSpecificationId taskSpecificationId, out Task? task)
     {
         task = null;
 
@@ -266,6 +278,21 @@ public class Workflow
 
         task = taskInstances[0];
         return true;
+    }
+
+    private Task GetRequiredSingleSpecificationTask(TaskSpecificationId taskSpecificationId)
+    {
+        if (!TryResolveSingleSpecificationTask(taskSpecificationId, out Task? task))
+        {
+            throw new InvalidOperationException($"Workflow {WorkflowInstanceId} references missing task specification {taskSpecificationId}.");
+        }
+
+        return task!;
+    }
+
+    private bool TryGetSingleSpecificationTask(TaskSpecificationId taskSpecificationId, out Task? task)
+    {
+        return TryResolveSingleSpecificationTask(taskSpecificationId, out task);
     }
 
     internal void AddAdjacency(Task task, Task adjacentTask)
@@ -285,11 +312,25 @@ public class Workflow
         IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies = graphChanges.AddedInstanceDependencies;
         Dictionary<string, Task> spawnedTasksByKey = new Dictionary<string, Task>(StringComparer.Ordinal);
 
+        AddSpawnedTasks(currentTask, spawnedTasks);
+        AddSpawnedTaskSpecifications(currentTask, spawnedTaskSpecifications, spawnedTasksByKey);
+        AddSpecificationDependencies(addedDependencies);
+        AddInstanceDependencies(addedInstanceDependencies, spawnedTasksByKey);
+    }
+
+    private void AddSpawnedTasks(Task currentTask, IReadOnlyCollection<TaskSpecification> spawnedTasks)
+    {
         foreach (TaskSpecification spawnedTaskSpecification in spawnedTasks)
         {
             RuntimeAddTask(spawnedTaskSpecification, currentTask.TaskInstanceId);
         }
+    }
 
+    private void AddSpawnedTaskSpecifications(
+        Task currentTask,
+        IReadOnlyCollection<TaskSpecificationSpawn> spawnedTaskSpecifications,
+        Dictionary<string, Task> spawnedTasksByKey)
+    {
         foreach (TaskSpecificationSpawn taskSpecificationSpawn in spawnedTaskSpecifications)
         {
             if (string.IsNullOrWhiteSpace(taskSpecificationSpawn.SpawnKey))
@@ -305,12 +346,20 @@ public class Workflow
                     $"Workflow {WorkflowInstanceId} received duplicate spawned task key {taskSpecificationSpawn.SpawnKey} in one graph change.");
             }
         }
+    }
 
+    private void AddSpecificationDependencies(IReadOnlyCollection<TaskDependencySpecification> addedDependencies)
+    {
         foreach (TaskDependencySpecification dependency in addedDependencies)
         {
             RuntimeAddDependency(dependency);
         }
+    }
 
+    private void AddInstanceDependencies(
+        IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies,
+        IReadOnlyDictionary<string, Task> spawnedTasksByKey)
+    {
         foreach (TaskInstanceDependency dependency in addedInstanceDependencies)
         {
             Task prerequisiteTask = ResolveTaskNodeReference(dependency.Prerequisite, spawnedTasksByKey);

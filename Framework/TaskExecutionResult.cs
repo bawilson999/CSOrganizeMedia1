@@ -118,7 +118,7 @@ public sealed record TaskExecutionResult
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
-            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies, spawnedTaskSpecifications, addedInstanceDependencies),
+            graphChanges: WorkflowGraphChanges.Create(spawnedTasks, addedDependencies, spawnedTaskSpecifications, addedInstanceDependencies),
             output: output);
     }
 
@@ -148,31 +148,5 @@ public sealed record TaskExecutionResult
             output: output,
             error: error,
             recoverability: recoverability);
-    }
-
-    private static WorkflowGraphChanges CreateGraphChanges(
-        IReadOnlyCollection<TaskSpecification>? spawnedTasks,
-        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies,
-        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications,
-        IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies)
-    {
-        if (IsNullOrEmpty(spawnedTasks) &&
-            IsNullOrEmpty(addedDependencies) &&
-            IsNullOrEmpty(spawnedTaskSpecifications) &&
-            IsNullOrEmpty(addedInstanceDependencies))
-        {
-            return WorkflowGraphChanges.None;
-        }
-
-        return new WorkflowGraphChanges(
-            SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
-            AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>(),
-            SpawnedTaskSpecifications: spawnedTaskSpecifications ?? Array.Empty<TaskSpecificationSpawn>(),
-            AddedInstanceDependencies: addedInstanceDependencies ?? Array.Empty<TaskInstanceDependency>());
-    }
-
-    private static bool IsNullOrEmpty<T>(IReadOnlyCollection<T>? values)
-    {
-        return values is null || values.Count == 0;
     }
 }

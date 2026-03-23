@@ -17,7 +17,7 @@ internal static class WorkflowExamples
 
         for (int i = 0; i < adjacencyArray.Length; i++)
         {
-            TaskSpecificationId taskSpecificationId = new TaskSpecificationId("T" + i.ToString());
+            TaskSpecificationId taskSpecificationId = new TaskSpecificationId($"T{i}");
             taskSpecifications.Add(
                 new TaskSpecification(
                     TaskSpecificationId: taskSpecificationId,
@@ -35,8 +35,8 @@ internal static class WorkflowExamples
                 int adjacentIndex = adjacentTaskIndices[j];
                 dependencySpecifications.Add(
                     new TaskDependencySpecification(
-                        PrerequisiteTaskSpecificationId: new TaskSpecificationId("T" + i.ToString()),
-                        DependentTaskSpecificationId: new TaskSpecificationId("T" + adjacentIndex.ToString())));
+                        PrerequisiteTaskSpecificationId: new TaskSpecificationId($"T{i}"),
+                        DependentTaskSpecificationId: new TaskSpecificationId($"T{adjacentIndex}")));
             }
         }
 

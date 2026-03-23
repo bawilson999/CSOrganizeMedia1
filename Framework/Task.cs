@@ -117,6 +117,39 @@ public class Task
         NotifyTransition(previousStatus);
     }
 
+    private void Complete(
+        TaskStatus previousStatus,
+        ExecutionOutcome executionOutcome,
+        ExecutionOutput? output,
+        ErrorInfo? error,
+        ExecutionFailureKind failureKind,
+        ExecutionRecoverability? recoverability,
+        bool completeAllSteps)
+    {
+        ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
+        ExecutionState.ExecutionOutcome = executionOutcome;
+
+        if (executionOutcome == ExecutionOutcome.Failed)
+        {
+            ExecutionState.FailureKind = failureKind;
+        }
+
+        if (completeAllSteps)
+        {
+            ExecutionState.CompletedSteps = ExecutionState.TotalSteps;
+        }
+
+        ExecutionState.Error = error;
+        ExecutionState.Output = output;
+
+        if (recoverability is not null)
+        {
+            ExecutionState.Recoverability = recoverability.Value;
+        }
+
+        NotifyTransition(previousStatus);
+    }
+
     internal void MarkSucceeded(ExecutionOutput? output = null)
     {
         TaskStatus previousStatus = Status;
@@ -125,13 +158,14 @@ public class Task
             subjectId: TaskSpecificationId.Value,
             currentPhase: ExecutionState.ExecutionPhase,
             ExecutionPhase.Running);
-        ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
-        ExecutionState.ExecutionOutcome = ExecutionOutcome.Succeeded;
-        ExecutionState.FailureKind = ExecutionFailureKind.None;
-        ExecutionState.CompletedSteps = ExecutionState.TotalSteps;
-        ExecutionState.Error = null;
-        ExecutionState.Output = output;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Succeeded,
+            output,
+            error: null,
+            failureKind: ExecutionFailureKind.None,
+            recoverability: null,
+            completeAllSteps: true);
     }
 
     internal void MarkCanceled(
@@ -150,13 +184,14 @@ public class Task
             nameof(recoverability),
             "Canceled tasks must use a terminal recoverability value.");
 
-        ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
-        ExecutionState.ExecutionOutcome = ExecutionOutcome.Canceled;
-        ExecutionState.FailureKind = ExecutionFailureKind.None;
-        ExecutionState.Error = error;
-        ExecutionState.Output = output;
-        ExecutionState.Recoverability = recoverability;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Canceled,
+            output,
+            error,
+            failureKind: ExecutionFailureKind.None,
+            recoverability,
+            completeAllSteps: false);
     }
 
     internal void MarkFailed(
@@ -178,13 +213,14 @@ public class Task
             invalidFailureKindMessage: "Failed tasks must use a transient, permanent, or unknown failure kind.",
             invalidRecoverabilityMessage: "Failed tasks must use a terminal recoverability value.");
 
-        ExecutionState.ExecutionPhase = ExecutionPhase.Finished;
-        ExecutionState.ExecutionOutcome = ExecutionOutcome.Failed;
-        ExecutionState.FailureKind = failureKind;
-        ExecutionState.Error = error;
-        ExecutionState.Output = output;
-        ExecutionState.Recoverability = effectiveRecoverability;
-        NotifyTransition(previousStatus);
+        Complete(
+            previousStatus,
+            ExecutionOutcome.Failed,
+            output,
+            error,
+            failureKind,
+            effectiveRecoverability,
+            completeAllSteps: false);
     }
 
     internal void MarkFailed(
@@ -213,7 +249,6 @@ public class Task
 
         ExecutionState.ExecutionPhase = ExecutionPhase.NotStarted;
         ExecutionState.ExecutionOutcome = ExecutionOutcome.Pending;
-        ExecutionState.FailureKind = ExecutionFailureKind.None;
         ExecutionState.CompletedSteps = 0;
         ExecutionState.Error = null;
         ExecutionState.Output = null;
