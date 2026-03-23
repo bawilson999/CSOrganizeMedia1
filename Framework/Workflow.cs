@@ -38,7 +38,7 @@ public class Workflow
 
         foreach (TaskSpecification taskSpecification in specification.Tasks)
         {
-            workflow.RegisterTaskTemplate(taskSpecification);
+            workflow.RegisterTaskSpecification(taskSpecification);
 
             for (int instanceIndex = 0; instanceIndex < taskSpecification.InitialInstanceCount; instanceIndex++)
             {
@@ -213,7 +213,7 @@ public class Workflow
         _executionState.AddTaskExecutionState(task.ExecutionState);
     }
 
-    private void RegisterTaskTemplate(TaskSpecification taskSpecification)
+    private void RegisterTaskSpecification(TaskSpecification taskSpecification)
     {
         _taskSpecificationsById.Add(taskSpecification.TaskSpecificationId, taskSpecification);
     }
@@ -281,7 +281,7 @@ public class Workflow
         TaskGraphChanges graphChanges = executionResult.GraphChanges;
         IReadOnlyCollection<TaskSpecification> spawnedTasks = graphChanges.SpawnedTasks;
         IReadOnlyCollection<TaskDependencySpecification> addedDependencies = graphChanges.AddedDependencies;
-        IReadOnlyCollection<TaskTemplateSpawn> spawnedTaskTemplates = graphChanges.SpawnedTaskTemplates;
+        IReadOnlyCollection<TaskSpecificationSpawn> spawnedTaskSpecifications = graphChanges.SpawnedTaskSpecifications;
         IReadOnlyCollection<TaskInstanceDependency> addedInstanceDependencies = graphChanges.AddedInstanceDependencies;
         Dictionary<string, Task> spawnedTasksByKey = new Dictionary<string, Task>(StringComparer.Ordinal);
 
@@ -290,19 +290,19 @@ public class Workflow
             RuntimeAddTask(spawnedTaskSpecification, currentTask.TaskInstanceId);
         }
 
-        foreach (TaskTemplateSpawn taskTemplateSpawn in spawnedTaskTemplates)
+        foreach (TaskSpecificationSpawn taskSpecificationSpawn in spawnedTaskSpecifications)
         {
-            if (string.IsNullOrWhiteSpace(taskTemplateSpawn.SpawnKey))
+            if (string.IsNullOrWhiteSpace(taskSpecificationSpawn.SpawnKey))
             {
-                throw new InvalidOperationException("Spawned task templates must provide a non-empty SpawnKey.");
+                throw new InvalidOperationException("Spawned task specifications must provide a non-empty SpawnKey.");
             }
 
-            Task spawnedTask = RuntimeSpawnTaskFromTemplate(currentTask, taskTemplateSpawn);
+            Task spawnedTask = RuntimeSpawnTaskFromSpecification(currentTask, taskSpecificationSpawn);
 
-            if (!spawnedTasksByKey.TryAdd(taskTemplateSpawn.SpawnKey, spawnedTask))
+            if (!spawnedTasksByKey.TryAdd(taskSpecificationSpawn.SpawnKey, spawnedTask))
             {
                 throw new InvalidOperationException(
-                    $"Workflow {WorkflowInstanceId} received duplicate spawned task key {taskTemplateSpawn.SpawnKey} in one graph change.");
+                    $"Workflow {WorkflowInstanceId} received duplicate spawned task key {taskSpecificationSpawn.SpawnKey} in one graph change.");
             }
         }
 
@@ -330,16 +330,16 @@ public class Workflow
         return task;
     }
 
-    private Task RuntimeSpawnTaskFromTemplate(Task currentTask, TaskTemplateSpawn taskTemplateSpawn)
+    private Task RuntimeSpawnTaskFromSpecification(Task currentTask, TaskSpecificationSpawn taskSpecificationSpawn)
     {
-        if (!_taskSpecificationsById.TryGetValue(taskTemplateSpawn.TaskSpecificationId, out TaskSpecification? taskSpecification))
+        if (!_taskSpecificationsById.TryGetValue(taskSpecificationSpawn.TaskSpecificationId, out TaskSpecification? taskSpecification))
         {
             throw new InvalidOperationException(
-            $"Workflow {WorkflowInstanceId} references missing task specification {taskTemplateSpawn.TaskSpecificationId}.");
+            $"Workflow {WorkflowInstanceId} references missing task specification {taskSpecificationSpawn.TaskSpecificationId}.");
         }
 
-        InputType? effectiveInputType = taskTemplateSpawn.InputType ?? taskSpecification.InputType;
-        string? effectiveInputJson = taskTemplateSpawn.InputJson ?? taskSpecification.InputJson;
+        InputType? effectiveInputType = taskSpecificationSpawn.InputType ?? taskSpecification.InputType;
+        string? effectiveInputJson = taskSpecificationSpawn.InputJson ?? taskSpecification.InputJson;
 
         TaskSpecification instanceSpecification = taskSpecification with
         {

@@ -25,7 +25,7 @@ public sealed record TaskNodeReference
 
     public string? SpawnKey { get; }
 
-    public static TaskNodeReference TemplateTask(TaskSpecificationId taskSpecificationId)
+    public static TaskNodeReference SpecificationTask(TaskSpecificationId taskSpecificationId)
     {
         return new TaskNodeReference(taskSpecificationId, null, null);
     }

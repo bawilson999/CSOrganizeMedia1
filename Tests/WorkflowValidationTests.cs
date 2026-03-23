@@ -108,7 +108,7 @@ public class WorkflowValidationTests
     }
 
     [Fact]
-    public void Workflow_FromSpecification_DoesNotCreateInitialInstancesForZeroToManyTemplates()
+    public void Workflow_FromSpecification_DoesNotCreateInitialInstancesForZeroToManySpecifications()
     {
         Workflow workflow = Workflow.FromSpecification(
             new WorkflowSpecification(

@@ -66,10 +66,10 @@ public class WorkflowExamplesTests
     }
 
     [Fact]
-    public void RunToCompletion_SpawnedTasksWithSameTemplateId_GetDistinctInstanceIds()
+    public void RunToCompletion_SpawnedTasksWithSameSpecificationId_GetDistinctInstanceIds()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowSpecificationId: new WorkflowSpecificationId("TemplateInstanceWorkflow"),
+            WorkflowSpecificationId: new WorkflowSpecificationId("SpecificationInstanceWorkflow"),
             Tasks:
             [
                 new TaskSpecification(
@@ -79,7 +79,7 @@ public class WorkflowExamplesTests
             Dependencies: Array.Empty<TaskDependencySpecification>());
 
         Workflow workflow = Workflow.FromSpecification(specification);
-        RepeatedTemplateSpawnFakeTaskExecutor taskExecutor = new RepeatedTemplateSpawnFakeTaskExecutor();
+        RepeatedSpecificationSpawnFakeTaskExecutor taskExecutor = new RepeatedSpecificationSpawnFakeTaskExecutor();
 
         workflow.RunToCompletion(taskExecutor);
 
@@ -100,7 +100,7 @@ public class WorkflowExamplesTests
             repeatedTaskStatuses.Select(status => ((TextExecutionOutput)status.Output!).Value).OrderBy(value => value).ToArray());
     }
 
-    private sealed class RepeatedTemplateSpawnFakeTaskExecutor : ITaskExecutor
+    private sealed class RepeatedSpecificationSpawnFakeTaskExecutor : ITaskExecutor
     {
         public List<string> ExecutedTaskIds { get; } = new List<string>();
 
@@ -132,7 +132,7 @@ public class WorkflowExamplesTests
     }
 
     [Fact]
-    public void RunToCompletion_MetadataReportTemplates_CreateRuntimeInstanceGraph()
+    public void RunToCompletion_MetadataReportSpecifications_CreateRuntimeInstanceGraph()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
             WorkflowSpecificationId: new WorkflowSpecificationId("MetadataReport"),
@@ -213,8 +213,8 @@ public class WorkflowExamplesTests
 
         private TaskExecutionResult DiscoverFiles(IExecutionContext executionContext)
         {
-            TaskTemplateSpawn[] extractSpawns = MetadataRows
-                .Select((row, index) => new TaskTemplateSpawn(
+            TaskSpecificationSpawn[] extractSpawns = MetadataRows
+                .Select((row, index) => new TaskSpecificationSpawn(
                     SpawnKey: $"extract-{index + 1}",
                     TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
                     InputType: new InputType("application/json"),
@@ -229,7 +229,7 @@ public class WorkflowExamplesTests
                         Dependent: TaskNodeReference.SpawnedTask(spawn.SpawnKey)),
                     new TaskInstanceDependency(
                         Prerequisite: TaskNodeReference.SpawnedTask(spawn.SpawnKey),
-                        Dependent: TaskNodeReference.TemplateTask(new TaskSpecificationId("GenerateMetadataReport")))
+                        Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
                 })
                 .SelectMany(pair => pair)
                 .ToArray();
@@ -238,7 +238,7 @@ public class WorkflowExamplesTests
 
             return TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput(discoveredFilesJson),
-                spawnedTaskTemplates: extractSpawns,
+                spawnedTaskSpecifications: extractSpawns,
                 addedInstanceDependencies: instanceDependencies);
         }
 
@@ -251,7 +251,7 @@ public class WorkflowExamplesTests
             string metadataJson =
                 $"{{ \"filePath\": \"{metadata.FilePath}\", \"fileSize\": {metadata.FileSize}, \"frameCount\": {metadata.FrameCount} }}";
 
-            TaskTemplateSpawn saveSpawn = new TaskTemplateSpawn(
+            TaskSpecificationSpawn saveSpawn = new TaskSpecificationSpawn(
                 SpawnKey: $"save-{executionContext.TaskInstanceId.InstanceNumber}",
                 TaskSpecificationId: new TaskSpecificationId("SaveFileMetadata"),
                 InputType: new InputType("application/json"),
@@ -263,7 +263,7 @@ public class WorkflowExamplesTests
 
             return TaskExecutionResult.Succeeded(
                 output: new TextExecutionOutput(metadataJson),
-                spawnedTaskTemplates: [saveSpawn],
+                spawnedTaskSpecifications: [saveSpawn],
                 addedInstanceDependencies: [saveDependency]);
         }
 

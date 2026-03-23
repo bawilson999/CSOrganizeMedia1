@@ -96,14 +96,14 @@ The system shall represent workflow and task identity and task metadata labels u
 
 The system shall expose task cardinality as a public consumer-facing concept through `TaskCardinality`.
 
-The system shall treat `TaskSpecificationId` as the template-scoped task identifier value object.
+The system shall treat `TaskSpecificationId` as the specification-scoped task identifier value object.
 
 Implications:
 
 - consumer code must provide explicit construction from `string`
 - consumer code may rely on string conversion when reading values back
 
-### FR-003 Workflow Template Id Validation
+### FR-003 Workflow Specification Id Validation
 
 The system shall reject a workflow specification whose `WorkflowSpecificationId` is empty or whitespace.
 
@@ -111,7 +111,7 @@ Expected outcome:
 
 - validation fails before execution starts
 
-### FR-004 Task Template Id Validation
+### FR-004 Task Specification Id Validation
 
 The system shall reject a task specification whose `TaskSpecificationId` is empty or whitespace.
 
@@ -451,7 +451,7 @@ The system shall allow success results to carry:
 
 - optional output
 - optional spawned tasks
-- optional spawned task templates
+- optional spawned task specifications
 - optional added dependencies
 - optional instance-targeted added dependencies
 
@@ -528,13 +528,13 @@ Expected failure meaning:
 
 The system shall allow a succeeded task result to create additional tasks at runtime.
 
-The preferred consumer-facing path shall allow runtime instance creation from zero-to-many templates through `TaskTemplateSpawn`.
+The preferred consumer-facing path shall allow runtime instance creation from zero-to-many specifications through `TaskSpecificationSpawn`.
 
 ### FR-061 Spawned Task Validation
 
 The system shall validate each spawned task as a normal `TaskSpecification` before adding it to the runtime graph.
 
-The system shall also validate each runtime instance created from a template spawn after applying template defaults and spawn-supplied input overrides.
+The system shall also validate each runtime instance created from a specification spawn after applying specification defaults and spawn-supplied input overrides.
 
 ### FR-062 Spawn Provenance
 
@@ -550,7 +550,7 @@ The system shall support runtime dependency materialization against concrete tas
 
 The system shall allow a succeeded task result to express dynamic joins by adding ordinary runtime dependencies to a join task.
 
-This shall include the case where a zero-to-many template produces `N` runtime instances and a singleton task instance joins on all `N` materialized predecessors.
+This shall include the case where a zero-to-many specification produces `N` runtime instances and a singleton task instance joins on all `N` materialized predecessors.
 
 ### FR-065 Dynamic Dependency Target Restriction
 

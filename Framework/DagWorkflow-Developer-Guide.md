@@ -49,12 +49,12 @@ InputType inputType = new InputType("application/json");
 
 Current conventions:
 
-- `WorkflowSpecificationId` identifies one reusable workflow template.
+- `WorkflowSpecificationId` identifies one reusable workflow specification.
 - `WorkflowInstanceId` identifies one concrete runtime workflow instance.
-- `TaskSpecificationId` is the template-scoped task identifier value object.
+- `TaskSpecificationId` is the specification-scoped task identifier value object.
 - `TaskType` is an open-ended label describing what a task does.
 - `InputType` is an open-ended label describing the shape or media type of `InputJson`.
-- `TaskCardinality` tells consumers whether a task template starts as a singleton or as a zero-to-many runtime family.
+- `TaskCardinality` tells consumers whether a task specification starts as a singleton or as a zero-to-many runtime family.
 
 The framework does not treat `TaskType` or `InputType` as enums. They are labels chosen by the consumer.
 
@@ -81,12 +81,12 @@ public readonly record struct TaskDependencySpecification(
     TaskSpecificationId DependentTaskSpecificationId);
 ```
 
-These names are the final public template-identity surface used throughout the framework.
+These names are the final public specification-identity surface used throughout the framework.
 
 Important current validation rules:
 
 - workflow ids must be non-empty
-- task template ids must be unique within a workflow
+- task specification ids must be unique within a workflow
 - dependency endpoints must exist
 - self-dependencies are invalid
 - duplicate dependencies are invalid
@@ -246,7 +246,7 @@ public interface IExecutionContext
 Important details:
 
 - `TaskSpecification` is the declarative definition for the current task.
-- `TaskSpecificationId` identifies the current task template while `TaskInstanceId` identifies the concrete runtime instance being executed.
+- `TaskSpecificationId` identifies the current task specification while `TaskInstanceId` identifies the concrete runtime instance being executed.
 - `DependencyStatuses` shows the current status snapshot for each prerequisite task instance.
 - `DependencyOutputs` is keyed by dependency task instance id.
 - dependency outputs are nullable by type, so task code should either handle missing outputs explicitly or assert that a specific dependency output is present.
@@ -447,16 +447,16 @@ Typical example:
 
 1. Task `A` scans a directory.
 2. Task `A` discovers files.
-3. Task `A` spawns one runtime instance of a zero-to-many template per file.
+3. Task `A` spawns one runtime instance of a zero-to-many specification per file.
 4. Task `C` should run only after all discovered file tasks finish.
 
-### Preferred Model: Cardinality Plus Template Spawns
+### Preferred Model: Cardinality Plus Specification Spawns
 
 The preferred public model is:
 
-- declare fixed singleton templates with `TaskCardinality.Singleton`
+- declare fixed singleton specifications with `TaskCardinality.Singleton`
 - declare dynamic families with `TaskCardinality.ZeroToMany`
-- materialize runtime instances of those dynamic templates with `TaskTemplateSpawn`
+- materialize runtime instances of those dynamic specifications with `TaskSpecificationSpawn`
 
 ```csharp
 WorkflowSpecification specification = new WorkflowSpecification(
@@ -487,9 +487,9 @@ At runtime, `DiscoverFiles` can materialize extraction instances like this:
 
 ```csharp
 return TaskExecutionResult.Succeeded(
-    spawnedTaskTemplates:
+    spawnedTaskSpecifications:
     [
-        new TaskTemplateSpawn(
+        new TaskSpecificationSpawn(
             SpawnKey: "extract-1",
             TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
             InputType: new InputType("application/json"),
@@ -499,7 +499,7 @@ return TaskExecutionResult.Succeeded(
     [
         new TaskInstanceDependency(
             Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
-            Dependent: TaskNodeReference.TemplateTask(new TaskSpecificationId("GenerateMetadataReport")))
+            Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
     ]);
 ```
 
@@ -561,13 +561,13 @@ new TaskDependencySpecification(new TaskSpecificationId("AUX"), new TaskSpecific
 
 ### Returning Instance-Aware Dependencies
 
-When you spawn runtime instances from templates, prefer `TaskInstanceDependency` and `TaskNodeReference`.
+When you spawn runtime instances from specifications, prefer `TaskInstanceDependency` and `TaskNodeReference`.
 
 ```csharp
 return TaskExecutionResult.Succeeded(
-    spawnedTaskTemplates:
+    spawnedTaskSpecifications:
     [
-        new TaskTemplateSpawn(
+        new TaskSpecificationSpawn(
             SpawnKey: "extract-1",
             TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
             InputType: new InputType("application/json"),
@@ -580,7 +580,7 @@ return TaskExecutionResult.Succeeded(
             Dependent: TaskNodeReference.SpawnedTask("extract-1")),
         new TaskInstanceDependency(
             Prerequisite: TaskNodeReference.SpawnedTask("extract-1"),
-            Dependent: TaskNodeReference.TemplateTask(new TaskSpecificationId("GenerateMetadataReport")))
+                Dependent: TaskNodeReference.SpecificationTask(new TaskSpecificationId("GenerateMetadataReport")))
     ]);
 ```
 
@@ -596,9 +596,9 @@ foreach (TaskSpecification spawnedTask in result.GraphChanges.SpawnedTasks)
     Console.WriteLine($"spawned: {spawnedTask.TaskSpecificationId}");
 }
 
-foreach (TaskTemplateSpawn spawnedTemplate in result.GraphChanges.SpawnedTaskTemplates)
+foreach (TaskSpecificationSpawn spawnedSpecification in result.GraphChanges.SpawnedTaskSpecifications)
 {
-    Console.WriteLine($"spawned from template: {spawnedTemplate.TaskSpecificationId} with key {spawnedTemplate.SpawnKey}");
+    Console.WriteLine($"spawned from specification: {spawnedSpecification.TaskSpecificationId} with key {spawnedSpecification.SpawnKey}");
 }
 
 foreach (TaskDependencySpecification dependency in result.GraphChanges.AddedDependencies)

@@ -113,12 +113,12 @@ public sealed record TaskExecutionResult
         ExecutionOutput? output = null,
         IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
-        IReadOnlyCollection<TaskTemplateSpawn>? spawnedTaskTemplates = null,
+        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications = null,
         IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies = null)
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
-            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies, spawnedTaskTemplates, addedInstanceDependencies),
+            graphChanges: CreateGraphChanges(spawnedTasks, addedDependencies, spawnedTaskSpecifications, addedInstanceDependencies),
             output: output);
     }
 
@@ -153,12 +153,12 @@ public sealed record TaskExecutionResult
     private static TaskGraphChanges CreateGraphChanges(
         IReadOnlyCollection<TaskSpecification>? spawnedTasks,
         IReadOnlyCollection<TaskDependencySpecification>? addedDependencies,
-        IReadOnlyCollection<TaskTemplateSpawn>? spawnedTaskTemplates,
+        IReadOnlyCollection<TaskSpecificationSpawn>? spawnedTaskSpecifications,
         IReadOnlyCollection<TaskInstanceDependency>? addedInstanceDependencies)
     {
         if (IsNullOrEmpty(spawnedTasks) &&
             IsNullOrEmpty(addedDependencies) &&
-            IsNullOrEmpty(spawnedTaskTemplates) &&
+            IsNullOrEmpty(spawnedTaskSpecifications) &&
             IsNullOrEmpty(addedInstanceDependencies))
         {
             return TaskGraphChanges.None;
@@ -167,7 +167,7 @@ public sealed record TaskExecutionResult
         return new TaskGraphChanges(
             SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),
             AddedDependencies: addedDependencies ?? Array.Empty<TaskDependencySpecification>(),
-            SpawnedTaskTemplates: spawnedTaskTemplates ?? Array.Empty<TaskTemplateSpawn>(),
+            SpawnedTaskSpecifications: spawnedTaskSpecifications ?? Array.Empty<TaskSpecificationSpawn>(),
             AddedInstanceDependencies: addedInstanceDependencies ?? Array.Empty<TaskInstanceDependency>());
     }
 

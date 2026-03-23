@@ -70,9 +70,9 @@ DagWorkflow uses small value objects instead of plain strings for identity and t
 
 Current semantics:
 
-- `WorkflowSpecificationId` identifies one reusable workflow template.
+- `WorkflowSpecificationId` identifies one reusable workflow specification.
 - `WorkflowInstanceId` identifies one concrete runtime workflow instance.
-- `TaskSpecificationId` is the template-scoped task identifier value object.
+- `TaskSpecificationId` is the specification-scoped task identifier value object.
 - `TaskType` is an open-ended task-kind label, not a closed enum.
 - `InputType` is an open-ended input schema or media-type label, not a closed enum.
 - Conversion from `string` into these value objects is explicit.
@@ -349,7 +349,7 @@ public readonly record struct TaskDependencySpecification(
     TaskSpecificationId DependentTaskSpecificationId);
 ```
 
-The implemented public surface uses `TaskSpecificationId`, `PrerequisiteTaskSpecificationId`, and `DependentTaskSpecificationId` as the final template-identity names, distinct from runtime `TaskInstanceId` values.
+The implemented public surface uses `TaskSpecificationId`, `PrerequisiteTaskSpecificationId`, and `DependentTaskSpecificationId` as the final specification-identity names, distinct from runtime `TaskInstanceId` values.
 
 ### Execution Boundary
 
@@ -367,7 +367,7 @@ public interface IExecutionContext
 }
 
 
-`TaskSpecificationId` and `TaskInstanceId` intentionally model different concepts at this boundary: template identity vs. runtime instance identity.
+`TaskSpecificationId` and `TaskInstanceId` intentionally model different concepts at this boundary: specification identity vs. runtime instance identity.
 public interface ITaskExecutor
 {
     TaskExecutionResult Execute(IExecutionContext executionContext);
@@ -689,7 +689,7 @@ Rules:
 
 A task may return `SpawnedTasks` in `TaskExecutionResult.Succeeded(...)` as a low-level escape hatch.
 
-The preferred public model is to declare zero-to-many templates with `TaskCardinality.ZeroToMany` and materialize concrete runtime instances through `TaskTemplateSpawn`.
+The preferred public model is to declare zero-to-many specifications with `TaskCardinality.ZeroToMany` and materialize concrete runtime instances through `TaskSpecificationSpawn`.
 
 Each spawned task is:
 
@@ -697,9 +697,9 @@ Each spawned task is:
 - added to the live workflow graph
 - runtime task instances record their parent instance when spawned
 
-Each template spawn is:
+Each specification spawn is:
 
-- resolved against an existing task template in the immutable specification graph
+- resolved against an existing task specification in the immutable specification graph
 - normalized into a concrete singleton runtime task instance
 - added to the live workflow graph with explicit runtime provenance
 
@@ -833,7 +833,7 @@ The standalone project should include tests for the following behaviors.
 ### Dynamic Execution
 
 - spawned tasks are added to the live graph
-- spawned task provenance is stored on runtime task instances, not on task templates
+- spawned task provenance is stored on runtime task instances, not on task specifications
 - dynamic dependency additions are validated
 - join dependencies create the correct concrete edges
 - join task remains blocked until all added prerequisites finish

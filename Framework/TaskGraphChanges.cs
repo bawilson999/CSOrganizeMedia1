@@ -3,12 +3,12 @@ namespace OrganizeMedia.Framework;
 public sealed record TaskGraphChanges(
     IReadOnlyCollection<TaskSpecification> SpawnedTasks,
     IReadOnlyCollection<TaskDependencySpecification> AddedDependencies,
-    IReadOnlyCollection<TaskTemplateSpawn> SpawnedTaskTemplates,
+    IReadOnlyCollection<TaskSpecificationSpawn> SpawnedTaskSpecifications,
     IReadOnlyCollection<TaskInstanceDependency> AddedInstanceDependencies)
 {
     public static TaskGraphChanges None { get; } = new TaskGraphChanges(
         SpawnedTasks: Array.Empty<TaskSpecification>(),
         AddedDependencies: Array.Empty<TaskDependencySpecification>(),
-        SpawnedTaskTemplates: Array.Empty<TaskTemplateSpawn>(),
+        SpawnedTaskSpecifications: Array.Empty<TaskSpecificationSpawn>(),
         AddedInstanceDependencies: Array.Empty<TaskInstanceDependency>());
 }

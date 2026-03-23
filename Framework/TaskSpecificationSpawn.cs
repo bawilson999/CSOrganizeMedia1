@@ -1,6 +1,6 @@
 namespace OrganizeMedia.Framework;
 
-public sealed record TaskTemplateSpawn(
+public sealed record TaskSpecificationSpawn(
     string SpawnKey,
     TaskSpecificationId TaskSpecificationId,
     InputType? InputType = null,
