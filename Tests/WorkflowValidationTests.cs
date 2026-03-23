@@ -88,7 +88,7 @@ public class WorkflowValidationTests
     public void TaskSpecification_SingletonCardinality_DefaultsToOneInitialInstance()
     {
         TaskSpecification specification = new TaskSpecification(
-            TaskTemplateId: new TaskTemplateId("A"),
+            TaskSpecificationId: new TaskSpecificationId("A"),
             TaskType: new TaskType("SingletonTask"));
 
         Assert.Equal(TaskCardinality.Singleton, specification.Cardinality);
@@ -99,7 +99,7 @@ public class WorkflowValidationTests
     public void TaskSpecification_ZeroToManyCardinality_DefaultsToZeroInitialInstances()
     {
         TaskSpecification specification = new TaskSpecification(
-            TaskTemplateId: new TaskTemplateId("B"),
+            TaskSpecificationId: new TaskSpecificationId("B"),
             TaskType: new TaskType("DynamicTask"),
             Cardinality: TaskCardinality.ZeroToMany);
 
@@ -112,68 +112,68 @@ public class WorkflowValidationTests
     {
         Workflow workflow = Workflow.FromSpecification(
             new WorkflowSpecification(
-                WorkflowTemplateId: new WorkflowTemplateId("CardinalityValidation"),
+                WorkflowSpecificationId: new WorkflowSpecificationId("CardinalityValidation"),
                 Tasks:
                 [
                     new TaskSpecification(
-                        TaskTemplateId: new TaskTemplateId("A"),
+                        TaskSpecificationId: new TaskSpecificationId("A"),
                         TaskType: new TaskType("DiscoverFiles")),
                     new TaskSpecification(
-                        TaskTemplateId: new TaskTemplateId("B"),
+                        TaskSpecificationId: new TaskSpecificationId("B"),
                         TaskType: new TaskType("ExtractFileMetadata"),
                         Cardinality: TaskCardinality.ZeroToMany)
                 ],
                 Dependencies:
                 [
-                    new TaskDependencySpecification(new TaskTemplateId("A"), new TaskTemplateId("B"))
+                    new TaskDependencySpecification(new TaskSpecificationId("A"), new TaskSpecificationId("B"))
                 ]));
 
-        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskTemplateId == new TaskTemplateId("A"));
-        Assert.DoesNotContain(workflow.Status.TaskStatuses.Values, status => status.TaskTemplateId == new TaskTemplateId("B"));
+        Assert.Single(workflow.Status.TaskStatuses.Values, status => status.TaskSpecificationId == new TaskSpecificationId("A"));
+        Assert.DoesNotContain(workflow.Status.TaskStatuses.Values, status => status.TaskSpecificationId == new TaskSpecificationId("B"));
     }
 
     [Fact]
-    public void PublicMembers_ExposeTaskTemplateIdSemantics()
+    public void PublicMembers_ExposeTaskSpecificationIdSemantics()
     {
-        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
-        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+        WorkflowSpecificationId workflowSpecificationId = new WorkflowSpecificationId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowSpecificationId, 1);
 
         TaskSpecification specification = new TaskSpecification(
-            TaskTemplateId: new TaskTemplateId("ExtractFileMetadata"),
+            TaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"),
             TaskType: new TaskType("ExtractFileMetadata"),
             Cardinality: TaskCardinality.ZeroToMany);
 
         TaskStatus status = new TaskStatus(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            TaskTemplateId: specification.TaskTemplateId,
-            TaskInstanceId: new TaskInstanceId(specification.TaskTemplateId, 1));
+            TaskSpecificationId: specification.TaskSpecificationId,
+            TaskInstanceId: new TaskInstanceId(specification.TaskSpecificationId, 1));
 
         TaskTransitionEvent transitionEvent = new TaskTransitionEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            TaskTemplateId: specification.TaskTemplateId,
-            TaskInstanceId: new TaskInstanceId(specification.TaskTemplateId, 1),
+            TaskSpecificationId: specification.TaskSpecificationId,
+            TaskInstanceId: new TaskInstanceId(specification.TaskSpecificationId, 1),
             PreviousStatus: status,
             CurrentStatus: status,
             Timestamp: DateTime.UtcNow);
 
         TaskAddedEvent addedEvent = new TaskAddedEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            TaskTemplateId: specification.TaskTemplateId,
-            TaskInstanceId: new TaskInstanceId(specification.TaskTemplateId, 1),
+            TaskSpecificationId: specification.TaskSpecificationId,
+            TaskInstanceId: new TaskInstanceId(specification.TaskSpecificationId, 1),
             Timestamp: DateTime.UtcNow);
 
         TaskDependencySpecification dependency = new TaskDependencySpecification(
-            PrerequisiteTaskTemplateId: new TaskTemplateId("DiscoverFiles"),
-            DependentTaskTemplateId: new TaskTemplateId("ExtractFileMetadata"));
+            PrerequisiteTaskSpecificationId: new TaskSpecificationId("DiscoverFiles"),
+            DependentTaskSpecificationId: new TaskSpecificationId("ExtractFileMetadata"));
 
-        Assert.Equal(new TaskTemplateId("ExtractFileMetadata"), specification.TaskTemplateId);
-        Assert.Equal(specification.TaskTemplateId, status.TaskTemplateId);
-        Assert.Equal(specification.TaskTemplateId, transitionEvent.TaskTemplateId);
-        Assert.Equal(specification.TaskTemplateId, addedEvent.TaskTemplateId);
-        Assert.Equal(new TaskTemplateId("DiscoverFiles"), dependency.PrerequisiteTaskTemplateId);
-        Assert.Equal(new TaskTemplateId("ExtractFileMetadata"), dependency.DependentTaskTemplateId);
+        Assert.Equal(new TaskSpecificationId("ExtractFileMetadata"), specification.TaskSpecificationId);
+        Assert.Equal(specification.TaskSpecificationId, status.TaskSpecificationId);
+        Assert.Equal(specification.TaskSpecificationId, transitionEvent.TaskSpecificationId);
+        Assert.Equal(specification.TaskSpecificationId, addedEvent.TaskSpecificationId);
+        Assert.Equal(new TaskSpecificationId("DiscoverFiles"), dependency.PrerequisiteTaskSpecificationId);
+        Assert.Equal(new TaskSpecificationId("ExtractFileMetadata"), dependency.DependentTaskSpecificationId);
     }
 }

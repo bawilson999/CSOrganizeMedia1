@@ -11,16 +11,16 @@ internal static class WorkflowExamples
 
     private static Workflow FromAdjacencyArray(string workflowIdString, int[][] adjacencyArray)
     {
-        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId(workflowIdString);
+        WorkflowSpecificationId workflowSpecificationId = new WorkflowSpecificationId(workflowIdString);
         List<TaskSpecification> taskSpecifications = new List<TaskSpecification>();
         List<TaskDependencySpecification> dependencySpecifications = new List<TaskDependencySpecification>();
 
         for (int i = 0; i < adjacencyArray.Length; i++)
         {
-            TaskTemplateId taskTemplateId = new TaskTemplateId("T" + i.ToString());
+            TaskSpecificationId taskSpecificationId = new TaskSpecificationId("T" + i.ToString());
             taskSpecifications.Add(
                 new TaskSpecification(
-                    TaskTemplateId: taskTemplateId,
+                    TaskSpecificationId: taskSpecificationId,
                     TaskType: new TaskType("StaticTask"),
                     InputType: new InputType("application/json"),
                     InputJson: $"{{\"taskIndex\":{i}}}"));
@@ -35,13 +35,13 @@ internal static class WorkflowExamples
                 int adjacentIndex = adjacentTaskIndices[j];
                 dependencySpecifications.Add(
                     new TaskDependencySpecification(
-                        PrerequisiteTaskTemplateId: new TaskTemplateId("T" + i.ToString()),
-                        DependentTaskTemplateId: new TaskTemplateId("T" + adjacentIndex.ToString())));
+                        PrerequisiteTaskSpecificationId: new TaskSpecificationId("T" + i.ToString()),
+                        DependentTaskSpecificationId: new TaskSpecificationId("T" + adjacentIndex.ToString())));
             }
         }
 
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             Tasks: taskSpecifications,
             Dependencies: dependencySpecifications);
 

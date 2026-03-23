@@ -23,7 +23,7 @@ internal sealed class WorkflowExecutionState : ExecutionStateCore
     internal WorkflowStatus ToStatus()
     {
         return new WorkflowStatus(
-            WorkflowTemplateId: WorkflowTemplateId,
+            WorkflowSpecificationId: WorkflowSpecificationId,
             WorkflowInstanceId: WorkflowInstanceId,
             ExecutionPhase: ExecutionPhase,
             ExecutionOutcome: ExecutionOutcome,

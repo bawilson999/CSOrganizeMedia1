@@ -30,10 +30,10 @@ public class WorkflowObserverTests
             observer.TaskTransitions.Select(transition => transition.CurrentStatus.ExecutionPhase));
         Assert.All(
             observer.TaskTransitions,
-            transition => Assert.Equal(new TaskTemplateId("A"), transition.TaskTemplateId));
+            transition => Assert.Equal(new TaskSpecificationId("A"), transition.TaskSpecificationId));
         Assert.All(
             observer.TaskTransitions,
-            transition => Assert.Equal(new TaskInstanceId(new TaskTemplateId("A"), 1), transition.TaskInstanceId));
+            transition => Assert.Equal(new TaskInstanceId(new TaskSpecificationId("A"), 1), transition.TaskInstanceId));
         Assert.Equal(ExecutionOutcome.Pending, observer.WorkflowTransitions[0].PreviousStatus.ExecutionOutcome);
         Assert.Equal(ExecutionOutcome.Succeeded, observer.WorkflowTransitions[^1].CurrentStatus.ExecutionOutcome);
         Assert.Equal(ExecutionOutcome.Succeeded, observer.TaskTransitions[^1].CurrentStatus.ExecutionOutcome);
@@ -43,14 +43,14 @@ public class WorkflowObserverTests
     public void RunToCompletion_NotifiesObserverForRuntimeGraphChanges()
     {
         WorkflowSpecification specification = new WorkflowSpecification(
-            WorkflowTemplateId: new WorkflowTemplateId("ObservedDynamicWorkflow"),
+            WorkflowSpecificationId: new WorkflowSpecificationId("ObservedDynamicWorkflow"),
             Tasks:
             [
                 new TaskSpecification(
-                    TaskTemplateId: new TaskTemplateId("A"),
+                    TaskSpecificationId: new TaskSpecificationId("A"),
                     TaskType: new TaskType("ScanMp4Directory")),
                 new TaskSpecification(
-                    TaskTemplateId: new TaskTemplateId("C"),
+                    TaskSpecificationId: new TaskSpecificationId("C"),
                     TaskType: new TaskType("AggregateMp4Results"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>(),
@@ -72,40 +72,40 @@ public class WorkflowObserverTests
     [Fact]
     public void TextWriterWorkflowObserver_WritesExpectedTransitionAndGraphChangeLines()
     {
-        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
-        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+        WorkflowSpecificationId workflowSpecificationId = new WorkflowSpecificationId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowSpecificationId, 1);
 
         StringWriter writer = new StringWriter();
         TextWriterWorkflowObserver observer = new TextWriterWorkflowObserver(writer);
 
         observer.OnWorkflowTransition(new WorkflowTransitionEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            PreviousStatus: new WorkflowStatus(workflowTemplateId, workflowInstanceId, ExecutionPhase.NotStarted, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
-            CurrentStatus: new WorkflowStatus(workflowTemplateId, workflowInstanceId, ExecutionPhase.ReadyToRun, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
+            PreviousStatus: new WorkflowStatus(workflowSpecificationId, workflowInstanceId, ExecutionPhase.NotStarted, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
+            CurrentStatus: new WorkflowStatus(workflowSpecificationId, workflowInstanceId, ExecutionPhase.ReadyToRun, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome, new Dictionary<TaskInstanceId, TaskStatus>()),
             Timestamp: DateTime.UtcNow));
 
         observer.OnTaskTransition(new TaskTransitionEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            TaskTemplateId: new TaskTemplateId("A"),
-            TaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
-            PreviousStatus: new TaskStatus(workflowTemplateId, workflowInstanceId, new TaskTemplateId("A"), new TaskInstanceId(new TaskTemplateId("A"), 1)),
-            CurrentStatus: new TaskStatus(workflowTemplateId, workflowInstanceId, new TaskTemplateId("A"), new TaskInstanceId(new TaskTemplateId("A"), 1), ExecutionPhase.Running, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome),
+            TaskSpecificationId: new TaskSpecificationId("A"),
+            TaskInstanceId: new TaskInstanceId(new TaskSpecificationId("A"), 1),
+            PreviousStatus: new TaskStatus(workflowSpecificationId, workflowInstanceId, new TaskSpecificationId("A"), new TaskInstanceId(new TaskSpecificationId("A"), 1)),
+            CurrentStatus: new TaskStatus(workflowSpecificationId, workflowInstanceId, new TaskSpecificationId("A"), new TaskInstanceId(new TaskSpecificationId("A"), 1), ExecutionPhase.Running, ExecutionOutcome.Pending, ExecutionFailureKind.None, ExecutionRecoverability.AwaitingOutcome),
             Timestamp: DateTime.UtcNow));
 
         observer.OnTaskAdded(new TaskAddedEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            TaskTemplateId: new TaskTemplateId("B"),
-            TaskInstanceId: new TaskInstanceId(new TaskTemplateId("B"), 1),
+            TaskSpecificationId: new TaskSpecificationId("B"),
+            TaskInstanceId: new TaskInstanceId(new TaskSpecificationId("B"), 1),
             Timestamp: DateTime.UtcNow));
 
         observer.OnDependencyAdded(new DependencyAddedEvent(
-            WorkflowTemplateId: workflowTemplateId,
+            WorkflowSpecificationId: workflowSpecificationId,
             WorkflowInstanceId: workflowInstanceId,
-            PrerequisiteTaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
-            DependentTaskInstanceId: new TaskInstanceId(new TaskTemplateId("B"), 1),
+            PrerequisiteTaskInstanceId: new TaskInstanceId(new TaskSpecificationId("A"), 1),
+            DependentTaskInstanceId: new TaskInstanceId(new TaskSpecificationId("B"), 1),
             Timestamp: DateTime.UtcNow));
 
         string output = writer.ToString();

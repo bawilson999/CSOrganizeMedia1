@@ -1,9 +1,9 @@
 namespace OrganizeMedia.Framework;
 
-public readonly record struct WorkflowInstanceId(WorkflowTemplateId WorkflowTemplateId, int InstanceNumber)
+public readonly record struct WorkflowInstanceId(WorkflowSpecificationId WorkflowSpecificationId, int InstanceNumber)
 {
     public override string ToString()
     {
-        return $"{WorkflowTemplateId}/{InstanceNumber}";
+        return $"{WorkflowSpecificationId}/{InstanceNumber}";
     }
 }

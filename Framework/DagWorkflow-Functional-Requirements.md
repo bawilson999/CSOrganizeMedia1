@@ -88,15 +88,15 @@ Rationale:
 
 The system shall represent workflow and task identity and task metadata labels using value objects rather than raw strings:
 
-- `WorkflowTemplateId`
+- `WorkflowSpecificationId`
 - `WorkflowInstanceId`
-- `TaskTemplateId`
+- `TaskSpecificationId`
 - `TaskType`
 - `InputType`
 
 The system shall expose task cardinality as a public consumer-facing concept through `TaskCardinality`.
 
-The system shall treat `TaskTemplateId` as the template-scoped task identifier value object.
+The system shall treat `TaskSpecificationId` as the template-scoped task identifier value object.
 
 Implications:
 
@@ -105,7 +105,7 @@ Implications:
 
 ### FR-003 Workflow Template Id Validation
 
-The system shall reject a workflow specification whose `WorkflowTemplateId` is empty or whitespace.
+The system shall reject a workflow specification whose `WorkflowSpecificationId` is empty or whitespace.
 
 Expected outcome:
 
@@ -113,7 +113,7 @@ Expected outcome:
 
 ### FR-004 Task Template Id Validation
 
-The system shall reject a task specification whose `TaskTemplateId` is empty or whitespace.
+The system shall reject a task specification whose `TaskSpecificationId` is empty or whitespace.
 
 Expected outcome:
 
@@ -392,9 +392,9 @@ The system shall execute task-specific work through a consumer-implemented `ITas
 
 The system shall provide the executor with an `IExecutionContext` containing:
 
-- `WorkflowTemplateId`
+- `WorkflowSpecificationId`
 - `WorkflowInstanceId`
-- `TaskTemplateId`
+- `TaskSpecificationId`
 - `TaskInstanceId`
 - `SpawnedByTaskInstanceId`
 - `TaskSpecification`

@@ -7,17 +7,17 @@ public class FormattingAndRecoverabilityDefaultsTests
     [Fact]
     public void TaskStatusFormatter_FormatsExpectedDisplayLine()
     {
-        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
-        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+        WorkflowSpecificationId workflowSpecificationId = new WorkflowSpecificationId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowSpecificationId, 1);
 
         string formatted = TaskStatusFormatter.Format(
             workflowInstanceId: workflowInstanceId,
-            taskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
+            taskInstanceId: new TaskInstanceId(new TaskSpecificationId("A"), 1),
             status: new TaskStatus(
-                WorkflowTemplateId: workflowTemplateId,
+                WorkflowSpecificationId: workflowSpecificationId,
                 WorkflowInstanceId: workflowInstanceId,
-                TaskTemplateId: new TaskTemplateId("A"),
-                TaskInstanceId: new TaskInstanceId(new TaskTemplateId("A"), 1),
+                TaskSpecificationId: new TaskSpecificationId("A"),
+                TaskInstanceId: new TaskInstanceId(new TaskSpecificationId("A"), 1),
                 ExecutionPhase: ExecutionPhase.Running,
                 ExecutionOutcome: ExecutionOutcome.Pending,
                 FailureKind: ExecutionFailureKind.None,
@@ -29,13 +29,13 @@ public class FormattingAndRecoverabilityDefaultsTests
     [Fact]
     public void WorkflowStatusFormatter_FormatsExpectedDisplayLine()
     {
-        WorkflowTemplateId workflowTemplateId = new WorkflowTemplateId("W0");
-        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowTemplateId, 1);
+        WorkflowSpecificationId workflowSpecificationId = new WorkflowSpecificationId("W0");
+        WorkflowInstanceId workflowInstanceId = new WorkflowInstanceId(workflowSpecificationId, 1);
 
         string formatted = WorkflowStatusFormatter.Format(
             workflowInstanceId: workflowInstanceId,
             status: new WorkflowStatus(
-                WorkflowTemplateId: workflowTemplateId,
+                WorkflowSpecificationId: workflowSpecificationId,
                 WorkflowInstanceId: workflowInstanceId,
                 ExecutionPhase: ExecutionPhase.ReadyToRun,
                 ExecutionOutcome: ExecutionOutcome.Pending,

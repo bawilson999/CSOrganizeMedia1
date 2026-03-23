@@ -1,88 +1,88 @@
 namespace OrganizeMedia.Framework;
 
 public record WorkflowSpecification(
-    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowSpecificationId WorkflowSpecificationId,
     IReadOnlyCollection<TaskSpecification> Tasks,
     IReadOnlyCollection<TaskDependencySpecification> Dependencies,
     int? MaxConcurrency = null)
 {
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(WorkflowTemplateId.Value))
+        if (string.IsNullOrWhiteSpace(WorkflowSpecificationId.Value))
         {
-            throw new InvalidOperationException("Workflow specifications must have a non-empty WorkflowTemplateId.");
+            throw new InvalidOperationException("Workflow specifications must have a non-empty WorkflowSpecificationId.");
         }
 
         if (Tasks is null)
         {
-            throw new InvalidOperationException($"Workflow specification {WorkflowTemplateId} must provide a task collection.");
+            throw new InvalidOperationException($"Workflow specification {WorkflowSpecificationId} must provide a task collection.");
         }
 
         if (Dependencies is null)
         {
-            throw new InvalidOperationException($"Workflow specification {WorkflowTemplateId} must provide a dependency collection.");
+            throw new InvalidOperationException($"Workflow specification {WorkflowSpecificationId} must provide a dependency collection.");
         }
 
         if (MaxConcurrency is not null && MaxConcurrency <= 0)
         {
             throw new InvalidOperationException(
-                $"Workflow specification {WorkflowTemplateId} must use a positive MaxConcurrency when provided.");
+                $"Workflow specification {WorkflowSpecificationId} must use a positive MaxConcurrency when provided.");
         }
 
-        HashSet<TaskTemplateId> taskTemplateIds = new HashSet<TaskTemplateId>();
-        Dictionary<TaskTemplateId, HashSet<TaskTemplateId>> adjacencyByTaskTemplateId = new Dictionary<TaskTemplateId, HashSet<TaskTemplateId>>();
-        Dictionary<TaskTemplateId, int> incomingEdgeCountByTaskTemplateId = new Dictionary<TaskTemplateId, int>();
+        HashSet<TaskSpecificationId> taskSpecificationIds = new HashSet<TaskSpecificationId>();
+        Dictionary<TaskSpecificationId, HashSet<TaskSpecificationId>> adjacencyByTaskSpecificationId = new Dictionary<TaskSpecificationId, HashSet<TaskSpecificationId>>();
+        Dictionary<TaskSpecificationId, int> incomingEdgeCountByTaskSpecificationId = new Dictionary<TaskSpecificationId, int>();
 
         foreach (TaskSpecification taskSpecification in Tasks)
         {
             if (taskSpecification is null)
             {
-                throw new InvalidOperationException($"Workflow specification {WorkflowTemplateId} cannot contain null task specifications.");
+                throw new InvalidOperationException($"Workflow specification {WorkflowSpecificationId} cannot contain null task specifications.");
             }
 
             taskSpecification.Validate();
 
-            if (!taskTemplateIds.Add(taskSpecification.TaskTemplateId))
+            if (!taskSpecificationIds.Add(taskSpecification.TaskSpecificationId))
             {
                 throw new InvalidOperationException(
-                    $"Workflow specification {WorkflowTemplateId} contains duplicate task template id {taskSpecification.TaskTemplateId}.");
+                    $"Workflow specification {WorkflowSpecificationId} contains duplicate task specification id {taskSpecification.TaskSpecificationId}.");
             }
 
-            adjacencyByTaskTemplateId[taskSpecification.TaskTemplateId] = new HashSet<TaskTemplateId>();
-            incomingEdgeCountByTaskTemplateId[taskSpecification.TaskTemplateId] = 0;
+            adjacencyByTaskSpecificationId[taskSpecification.TaskSpecificationId] = new HashSet<TaskSpecificationId>();
+            incomingEdgeCountByTaskSpecificationId[taskSpecification.TaskSpecificationId] = 0;
         }
 
         foreach (TaskDependencySpecification dependency in Dependencies)
         {
-            if (dependency.PrerequisiteTaskTemplateId == dependency.DependentTaskTemplateId)
+            if (dependency.PrerequisiteTaskSpecificationId == dependency.DependentTaskSpecificationId)
             {
                 throw new InvalidOperationException(
-                    $"Workflow specification {WorkflowTemplateId} contains a self-dependency on task template {dependency.PrerequisiteTaskTemplateId}.");
+                        $"Workflow specification {WorkflowSpecificationId} contains a self-dependency on task specification {dependency.PrerequisiteTaskSpecificationId}.");
             }
 
-            if (!taskTemplateIds.Contains(dependency.PrerequisiteTaskTemplateId))
+            if (!taskSpecificationIds.Contains(dependency.PrerequisiteTaskSpecificationId))
             {
                 throw new InvalidOperationException(
-                    $"Workflow specification {WorkflowTemplateId} references missing prerequisite task template {dependency.PrerequisiteTaskTemplateId}.");
+                        $"Workflow specification {WorkflowSpecificationId} references missing prerequisite task specification {dependency.PrerequisiteTaskSpecificationId}.");
             }
 
-            if (!taskTemplateIds.Contains(dependency.DependentTaskTemplateId))
+            if (!taskSpecificationIds.Contains(dependency.DependentTaskSpecificationId))
             {
                 throw new InvalidOperationException(
-                    $"Workflow specification {WorkflowTemplateId} references missing dependent task template {dependency.DependentTaskTemplateId}.");
+                        $"Workflow specification {WorkflowSpecificationId} references missing dependent task specification {dependency.DependentTaskSpecificationId}.");
             }
 
-            if (!adjacencyByTaskTemplateId[dependency.PrerequisiteTaskTemplateId].Add(dependency.DependentTaskTemplateId))
+            if (!adjacencyByTaskSpecificationId[dependency.PrerequisiteTaskSpecificationId].Add(dependency.DependentTaskSpecificationId))
             {
                 throw new InvalidOperationException(
-                    $"Workflow specification {WorkflowTemplateId} contains duplicate dependency {dependency.PrerequisiteTaskTemplateId} -> {dependency.DependentTaskTemplateId}.");
+                    $"Workflow specification {WorkflowSpecificationId} contains duplicate dependency {dependency.PrerequisiteTaskSpecificationId} -> {dependency.DependentTaskSpecificationId}.");
             }
 
-            incomingEdgeCountByTaskTemplateId[dependency.DependentTaskTemplateId] += 1;
+            incomingEdgeCountByTaskSpecificationId[dependency.DependentTaskSpecificationId] += 1;
         }
 
-        Queue<TaskTemplateId> readyQueue = new Queue<TaskTemplateId>(
-            incomingEdgeCountByTaskTemplateId
+        Queue<TaskSpecificationId> readyQueue = new Queue<TaskSpecificationId>(
+            incomingEdgeCountByTaskSpecificationId
                 .Where(pair => pair.Value == 0)
                 .Select(pair => pair.Key));
 
@@ -90,24 +90,24 @@ public record WorkflowSpecification(
 
         while (readyQueue.Count > 0)
         {
-            TaskTemplateId taskTemplateId = readyQueue.Dequeue();
+            TaskSpecificationId taskSpecificationId = readyQueue.Dequeue();
             visitedTaskCount++;
 
-            foreach (TaskTemplateId adjacentTaskTemplateId in adjacencyByTaskTemplateId[taskTemplateId])
+            foreach (TaskSpecificationId adjacentTaskSpecificationId in adjacencyByTaskSpecificationId[taskSpecificationId])
             {
-                incomingEdgeCountByTaskTemplateId[adjacentTaskTemplateId] -= 1;
+                incomingEdgeCountByTaskSpecificationId[adjacentTaskSpecificationId] -= 1;
 
-                if (incomingEdgeCountByTaskTemplateId[adjacentTaskTemplateId] == 0)
+                if (incomingEdgeCountByTaskSpecificationId[adjacentTaskSpecificationId] == 0)
                 {
-                    readyQueue.Enqueue(adjacentTaskTemplateId);
+                    readyQueue.Enqueue(adjacentTaskSpecificationId);
                 }
             }
         }
 
-        if (visitedTaskCount != taskTemplateIds.Count)
+        if (visitedTaskCount != taskSpecificationIds.Count)
         {
             throw new InvalidOperationException(
-                $"Workflow specification {WorkflowTemplateId} contains a dependency cycle.");
+                $"Workflow specification {WorkflowSpecificationId} contains a dependency cycle.");
         }
     }
 }

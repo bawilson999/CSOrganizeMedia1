@@ -12,7 +12,7 @@ public class WorkflowRetryTests
             taskIds: ["A", "B"],
             dependencies:
             [
-                new TaskDependencySpecification(new TaskTemplateId("A"), new TaskTemplateId("B"))
+                new TaskDependencySpecification(new TaskSpecificationId("A"), new TaskSpecificationId("B"))
             ]);
 
         RecordingFakeTaskExecutor taskExecutor = new RecordingFakeTaskExecutor(
@@ -42,10 +42,10 @@ public class WorkflowRetryTests
         Assert.Equal(["A", "A", "B"], taskExecutor.ExecutedTaskIds);
         Assert.Equal(
             ExecutionOutcome.Succeeded,
-            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("A"), 1)].ExecutionOutcome);
+            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskSpecificationId("A"), 1)].ExecutionOutcome);
         Assert.Equal(
             ExecutionOutcome.Succeeded,
-            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskTemplateId("B"), 1)].ExecutionOutcome);
+            workflow.Status.TaskStatuses[new TaskInstanceId(new TaskSpecificationId("B"), 1)].ExecutionOutcome);
     }
 
     [Fact]

@@ -2,6 +2,6 @@ namespace OrganizeMedia.Framework;
 
 public sealed record TaskTemplateSpawn(
     string SpawnKey,
-    TaskTemplateId TaskTemplateId,
+    TaskSpecificationId TaskSpecificationId,
     InputType? InputType = null,
     string? InputJson = null);

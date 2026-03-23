@@ -3,13 +3,13 @@ namespace OrganizeMedia.Framework;
 public record TaskSpecification
 {
     public TaskSpecification(
-        TaskTemplateId TaskTemplateId,
+        TaskSpecificationId TaskSpecificationId,
         TaskType TaskType,
         InputType? InputType = null,
         string? InputJson = null,
         TaskCardinality Cardinality = TaskCardinality.Singleton)
         : this(
-            TaskTemplateId,
+            TaskSpecificationId,
             TaskType,
             InputType,
             InputJson,
@@ -19,14 +19,14 @@ public record TaskSpecification
     }
 
     internal TaskSpecification(
-        TaskTemplateId TaskTemplateId,
+        TaskSpecificationId TaskSpecificationId,
         TaskType TaskType,
         InputType? InputType,
         string? InputJson,
         TaskCardinality Cardinality,
         int InitialInstanceCount)
     {
-        this.TaskTemplateId = TaskTemplateId;
+        this.TaskSpecificationId = TaskSpecificationId;
         this.TaskType = TaskType;
         this.InputType = InputType;
         this.InputJson = InputJson;
@@ -34,7 +34,7 @@ public record TaskSpecification
         this.InitialInstanceCount = InitialInstanceCount;
     }
 
-    public TaskTemplateId TaskTemplateId { get; init; }
+    public TaskSpecificationId TaskSpecificationId { get; init; }
 
     public TaskType TaskType { get; init; }
 
@@ -48,39 +48,39 @@ public record TaskSpecification
 
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(TaskTemplateId.Value))
+        if (string.IsNullOrWhiteSpace(TaskSpecificationId.Value))
         {
-            throw new InvalidOperationException("Task specifications must have a non-empty TaskTemplateId.");
+            throw new InvalidOperationException("Task specifications must have a non-empty TaskSpecificationId.");
         }
 
         if (string.IsNullOrWhiteSpace(TaskType.Value))
         {
-            throw new InvalidOperationException($"Task specification {TaskTemplateId} must have a non-empty TaskType.");
+            throw new InvalidOperationException($"Task specification {TaskSpecificationId} must have a non-empty TaskType.");
         }
 
         if (!string.IsNullOrWhiteSpace(InputJson) &&
             (!InputType.HasValue || string.IsNullOrWhiteSpace(InputType.Value.Value)))
         {
             throw new InvalidOperationException(
-                $"Task specification {TaskTemplateId} must provide InputType when InputJson is present.");
+                $"Task specification {TaskSpecificationId} must provide InputType when InputJson is present.");
         }
 
         if (InitialInstanceCount < 0)
         {
             throw new InvalidOperationException(
-                $"Task specification {TaskTemplateId} must use a non-negative InitialInstanceCount.");
+                $"Task specification {TaskSpecificationId} must use a non-negative InitialInstanceCount.");
         }
 
         if (Cardinality == TaskCardinality.Singleton && InitialInstanceCount != 1)
         {
             throw new InvalidOperationException(
-                $"Task specification {TaskTemplateId} must use InitialInstanceCount = 1 when Cardinality is Singleton.");
+                $"Task specification {TaskSpecificationId} must use InitialInstanceCount = 1 when Cardinality is Singleton.");
         }
 
         if (Cardinality == TaskCardinality.ZeroToMany && InitialInstanceCount != 0)
         {
             throw new InvalidOperationException(
-                $"Task specification {TaskTemplateId} must use InitialInstanceCount = 0 when Cardinality is ZeroToMany.");
+                $"Task specification {TaskSpecificationId} must use InitialInstanceCount = 0 when Cardinality is ZeroToMany.");
         }
     }
 

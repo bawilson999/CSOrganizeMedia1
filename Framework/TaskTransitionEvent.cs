@@ -1,9 +1,9 @@
 namespace OrganizeMedia.Framework;
 
 public record TaskTransitionEvent(
-    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowSpecificationId WorkflowSpecificationId,
     WorkflowInstanceId WorkflowInstanceId,
-    TaskTemplateId TaskTemplateId,
+    TaskSpecificationId TaskSpecificationId,
     TaskInstanceId TaskInstanceId,
     TaskStatus PreviousStatus,
     TaskStatus CurrentStatus,

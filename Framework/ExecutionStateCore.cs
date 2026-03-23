@@ -25,7 +25,7 @@ internal abstract class ExecutionStateCore
         FinishedTimestamp = null;
     }
 
-    public WorkflowTemplateId WorkflowTemplateId => WorkflowInstanceId.WorkflowTemplateId;
+    public WorkflowSpecificationId WorkflowSpecificationId => WorkflowInstanceId.WorkflowSpecificationId;
 
     public WorkflowInstanceId WorkflowInstanceId { get; init; }
 

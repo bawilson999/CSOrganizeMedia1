@@ -1,7 +1,7 @@
 namespace OrganizeMedia.Framework;
 
 public record WorkflowStatus(
-    WorkflowTemplateId WorkflowTemplateId,
+    WorkflowSpecificationId WorkflowSpecificationId,
     WorkflowInstanceId WorkflowInstanceId,
     ExecutionPhase ExecutionPhase,
     ExecutionOutcome ExecutionOutcome,

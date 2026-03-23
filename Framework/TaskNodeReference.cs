@@ -2,10 +2,10 @@ namespace OrganizeMedia.Framework;
 
 public sealed record TaskNodeReference
 {
-    private TaskNodeReference(TaskTemplateId? taskTemplateId, TaskInstanceId? taskInstanceId, string? spawnKey)
+    private TaskNodeReference(TaskSpecificationId? taskSpecificationId, TaskInstanceId? taskInstanceId, string? spawnKey)
     {
         int populatedReferenceCount =
-            (taskTemplateId is not null ? 1 : 0) +
+            (taskSpecificationId is not null ? 1 : 0) +
             (taskInstanceId is not null ? 1 : 0) +
             (string.IsNullOrWhiteSpace(spawnKey) ? 0 : 1);
 
@@ -14,20 +14,20 @@ public sealed record TaskNodeReference
             throw new InvalidOperationException("Task node references must specify exactly one reference kind.");
         }
 
-        TaskTemplateId = taskTemplateId;
+        TaskSpecificationId = taskSpecificationId;
         TaskInstanceId = taskInstanceId;
         SpawnKey = spawnKey;
     }
 
-    public TaskTemplateId? TaskTemplateId { get; }
+    public TaskSpecificationId? TaskSpecificationId { get; }
 
     public TaskInstanceId? TaskInstanceId { get; }
 
     public string? SpawnKey { get; }
 
-    public static TaskNodeReference TemplateTask(TaskTemplateId taskTemplateId)
+    public static TaskNodeReference TemplateTask(TaskSpecificationId taskSpecificationId)
     {
-        return new TaskNodeReference(taskTemplateId, null, null);
+        return new TaskNodeReference(taskSpecificationId, null, null);
     }
 
     public static TaskNodeReference TaskInstance(TaskInstanceId taskInstanceId)

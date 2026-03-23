@@ -4,19 +4,19 @@ internal sealed class TaskExecutionState : ExecutionStateCore
 {
     internal TaskExecutionState(
         WorkflowInstanceId workflowInstanceId,
-        TaskTemplateId taskTemplateId,
+        TaskSpecificationId taskSpecificationId,
         TaskInstanceId taskInstanceId,
         TaskInstanceId? spawnedByTaskInstanceId = null)
         : base(workflowInstanceId)
     {
-        TaskTemplateId = taskTemplateId;
+        TaskSpecificationId = taskSpecificationId;
         TaskInstanceId = taskInstanceId;
         SpawnedByTaskInstanceId = spawnedByTaskInstanceId;
         TotalSteps = 1;
         CompletedSteps = 0;
     }
 
-    public TaskTemplateId TaskTemplateId { get; init; }
+    public TaskSpecificationId TaskSpecificationId { get; init; }
 
     public TaskInstanceId TaskInstanceId { get; init; }
 
@@ -29,9 +29,9 @@ internal sealed class TaskExecutionState : ExecutionStateCore
     internal TaskStatus ToStatus()
     {
         return new TaskStatus(
-            WorkflowTemplateId: WorkflowTemplateId,
+            WorkflowSpecificationId: WorkflowSpecificationId,
             WorkflowInstanceId: WorkflowInstanceId,
-            TaskTemplateId: TaskTemplateId,
+            TaskSpecificationId: TaskSpecificationId,
             TaskInstanceId: TaskInstanceId,
             ExecutionPhase: ExecutionPhase,
             ExecutionOutcome: ExecutionOutcome,
