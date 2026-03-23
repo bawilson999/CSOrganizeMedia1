@@ -2,6 +2,8 @@ namespace OrganizeMedia.Framework;
 
 internal class ExecutionContext : IExecutionContext
 {
+    private readonly IReadOnlyDictionary<TaskId, TaskStatus> _dependencyStatuses;
+
     internal ExecutionContext(Workflow workflow, Task task)
     {
         ArgumentNullException.ThrowIfNull(workflow);
@@ -15,10 +17,7 @@ internal class ExecutionContext : IExecutionContext
             .GetDependencies(task)
             .ToDictionary(dependency => dependency.TaskId, dependency => dependency.Status);
 
-        DependencyStatuses = dependencyStatuses;
-        DependencyOutputs = dependencyStatuses.ToDictionary(
-            pair => pair.Key,
-            pair => pair.Value.Output);
+        _dependencyStatuses = dependencyStatuses;
     }
 
     public WorkflowId WorkflowId { get; }
@@ -27,7 +26,9 @@ internal class ExecutionContext : IExecutionContext
 
     public TaskSpecification TaskSpecification { get; }
 
-    public IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
+    public IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses => _dependencyStatuses;
 
-    public IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs { get; }
+    public IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs => _dependencyStatuses.ToDictionary(
+        pair => pair.Key,
+        pair => pair.Value.Output);
 }
