@@ -88,9 +88,9 @@ internal abstract class ExecutionStateCore
 
     public ExecutionRecoverability Recoverability { get; internal set; }
 
-    public ErrorInfo Error { get; internal set; }
+    public ErrorInfo? Error { get; internal set; }
 
-    public ExecutionOutput Output { get; internal set; }
+    public ExecutionOutput? Output { get; internal set; }
 
     public DateTime? Timestamp { get; internal set; }
 

@@ -4,7 +4,7 @@ internal sealed class WorkflowOrchestrator
 {
     private readonly ITaskExecutor _taskExecutor;
 
-    internal WorkflowOrchestrator(ITaskExecutor taskExecutor = null)
+    internal WorkflowOrchestrator(ITaskExecutor? taskExecutor = null)
     {
         _taskExecutor = taskExecutor ?? new DefaultTaskExecutor();
     }
@@ -13,7 +13,7 @@ internal sealed class WorkflowOrchestrator
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
-        Task currentTask = null;
+        Task? currentTask = null;
         int maxConcurrency = workflow.MaxConcurrency ?? int.MaxValue;
 
         workflow.StartExecution();

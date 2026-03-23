@@ -4,7 +4,7 @@ public record TaskSpecification(
     TaskId TaskId,
     TaskType TaskType,
     InputType? InputType = null,
-    string InputJson = null,
+    string? InputJson = null,
     TaskId? SpawnedByTaskId = null)
 {
     public void Validate()

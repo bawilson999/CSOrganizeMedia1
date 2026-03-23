@@ -2,7 +2,7 @@ namespace OrganizeMedia.Framework;
 
 public record TaskFanInSpecification(
     TaskId JoinTaskId,
-    IReadOnlyCollection<TaskId> AdditionalPrerequisiteTaskIds = null,
+    IReadOnlyCollection<TaskId>? AdditionalPrerequisiteTaskIds = null,
     bool IncludeSpawnedTasks = true)
 {
     public void Validate()

@@ -59,7 +59,7 @@ public class DefaultTaskExecutorTests
             TaskId = taskSpecification.TaskId;
             TaskSpecification = taskSpecification;
             DependencyStatuses = new Dictionary<TaskId, TaskStatus>();
-            DependencyOutputs = new Dictionary<TaskId, ExecutionOutput>();
+            DependencyOutputs = new Dictionary<TaskId, ExecutionOutput?>();
         }
 
         public WorkflowId WorkflowId { get; }
@@ -70,6 +70,6 @@ public class DefaultTaskExecutorTests
 
         public IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
 
-        public IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs { get; }
+        public IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
     }
 }

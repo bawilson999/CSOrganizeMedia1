@@ -11,9 +11,9 @@ public sealed record TaskRuntimeMutations(
         FanInSpecifications: Array.Empty<TaskFanInSpecification>());
 
     public static TaskRuntimeMutations Create(
-        IReadOnlyCollection<TaskSpecification> spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = null,
-        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = null)
+        IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
+        IReadOnlyCollection<TaskFanInSpecification>? fanInSpecifications = null)
     {
         return new TaskRuntimeMutations(
             SpawnedTasks: spawnedTasks ?? Array.Empty<TaskSpecification>(),

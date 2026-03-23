@@ -271,7 +271,7 @@ public interface IExecutionContext
     TaskId TaskId { get; }
     TaskSpecification TaskSpecification { get; }
     IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
-    IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs { get; }
+    IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
 }
 
 public interface ITaskExecutor

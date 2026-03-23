@@ -5,26 +5,26 @@ namespace OrganizeMedia.Framework;
 public record ErrorInfo(
     string Type,
     string Message,
-    string StackTrace = null,
-    string Source = null,
-    string HelpLink = null,
-    Dictionary<string, string> Data = null,
-    ErrorInfo InnerError = null)
+    string? StackTrace = null,
+    string? Source = null,
+    string? HelpLink = null,
+    Dictionary<string, string?>? Data = null,
+    ErrorInfo? InnerError = null)
 {
-    public static ErrorInfo FromException(Exception exception)
+    public static ErrorInfo? FromException(Exception? exception)
     {
         if (exception is null)
             return null;
 
-        Dictionary<string, string> data = null;
+        Dictionary<string, string?>? data = null;
 
         if (exception.Data.Count > 0)
         {
-            data = new Dictionary<string, string>();
+            data = new Dictionary<string, string?>();
 
             foreach (DictionaryEntry entry in exception.Data)
             {
-                string key = entry.Key?.ToString();
+                string? key = entry.Key?.ToString();
                 if (key is null)
                     continue;
 
@@ -33,7 +33,7 @@ public record ErrorInfo(
         }
 
         return new ErrorInfo(
-            Type: exception.GetType().FullName,
+            Type: exception.GetType().FullName ?? exception.GetType().Name,
             Message: exception.Message,
             StackTrace: exception.StackTrace,
             Source: exception.Source,

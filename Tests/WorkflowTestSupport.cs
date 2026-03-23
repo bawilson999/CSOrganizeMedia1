@@ -86,7 +86,7 @@ internal sealed class RecordingFakeTaskExecutor : ITaskExecutor
         string taskId = executionContext.TaskId.Value;
         ExecutedTaskIds.Add(taskId);
 
-        if (!_resultsByTaskId.TryGetValue(taskId, out Queue<TaskExecutionResult> results) || results.Count == 0)
+        if (!_resultsByTaskId.TryGetValue(taskId, out Queue<TaskExecutionResult>? results) || results.Count == 0)
         {
             throw new InvalidOperationException($"No configured execution result for task {taskId}.");
         }
@@ -145,10 +145,11 @@ internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
             AggregatorDependencyTaskIds.Add(dependencyTaskId.Value);
         }
 
-        foreach (ExecutionOutput output in executionContext.DependencyOutputs
+        foreach (ExecutionOutput? output in executionContext.DependencyOutputs
             .OrderBy(pair => pair.Key.Value)
             .Select(pair => pair.Value))
         {
+            Assert.NotNull(output);
             AggregatorDependencyOutputValues.Add(((TextExecutionOutput)output).Value);
         }
 

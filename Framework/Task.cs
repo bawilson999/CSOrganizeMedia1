@@ -113,7 +113,7 @@ public class Task
         NotifyTransition(previousStatus);
     }
 
-    internal void MarkSucceeded(ExecutionOutput output = null)
+    internal void MarkSucceeded(ExecutionOutput? output = null)
     {
         TaskStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -131,8 +131,8 @@ public class Task
     }
 
     internal void MarkCanceled(
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         TaskStatus previousStatus = Status;
@@ -157,8 +157,8 @@ public class Task
 
     internal void MarkFailed(
         ExecutionFailureKind failureKind,
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability? recoverability = null)
     {
         TaskStatus previousStatus = Status;
@@ -186,7 +186,7 @@ public class Task
     internal void MarkFailed(
         Exception exception,
         ExecutionFailureKind failureKind,
-        ExecutionOutput output = null,
+        ExecutionOutput? output = null,
         ExecutionRecoverability? recoverability = null)
     {
         MarkFailed(

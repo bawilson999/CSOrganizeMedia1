@@ -5,10 +5,10 @@ public sealed record TaskExecutionResult
     private TaskExecutionResult(
         ExecutionOutcome executionOutcome,
         ExecutionFailureKind failureKind = ExecutionFailureKind.None,
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability? recoverability = null,
-        TaskRuntimeMutations runtimeMutations = null)
+        TaskRuntimeMutations? runtimeMutations = null)
     {
         Validate(executionOutcome, failureKind, recoverability, runtimeMutations);
 
@@ -24,13 +24,13 @@ public sealed record TaskExecutionResult
 
     public ExecutionFailureKind FailureKind { get; }
 
-    public ExecutionOutput Output { get; }
+    public ExecutionOutput? Output { get; }
 
-    public ErrorInfo Error { get; }
+    public ErrorInfo? Error { get; }
 
     public ExecutionRecoverability? Recoverability { get; }
 
-    public TaskRuntimeMutations RuntimeMutations { get; }
+    public TaskRuntimeMutations? RuntimeMutations { get; }
 
     public IReadOnlyCollection<TaskSpecification> SpawnedTasks =>
         RuntimeMutations?.SpawnedTasks ?? Array.Empty<TaskSpecification>();
@@ -45,7 +45,7 @@ public sealed record TaskExecutionResult
         ExecutionOutcome executionOutcome,
         ExecutionFailureKind failureKind,
         ExecutionRecoverability? recoverability,
-        TaskRuntimeMutations runtimeMutations)
+        TaskRuntimeMutations? runtimeMutations)
     {
         switch (executionOutcome)
         {
@@ -118,8 +118,8 @@ public sealed record TaskExecutionResult
     }
 
     internal static TaskExecutionResult SucceededWithMutations(
-        ExecutionOutput output = null,
-        TaskRuntimeMutations runtimeMutations = null)
+        ExecutionOutput? output = null,
+        TaskRuntimeMutations? runtimeMutations = null)
     {
         return new TaskExecutionResult(
             executionOutcome: ExecutionOutcome.Succeeded,
@@ -128,10 +128,10 @@ public sealed record TaskExecutionResult
     }
 
     public static TaskExecutionResult Succeeded(
-        ExecutionOutput output = null,
-        IReadOnlyCollection<TaskSpecification> spawnedTasks = null,
-        IReadOnlyCollection<TaskDependencySpecification> addedDependencies = null,
-        IReadOnlyCollection<TaskFanInSpecification> fanInSpecifications = null)
+        ExecutionOutput? output = null,
+        IReadOnlyCollection<TaskSpecification>? spawnedTasks = null,
+        IReadOnlyCollection<TaskDependencySpecification>? addedDependencies = null,
+        IReadOnlyCollection<TaskFanInSpecification>? fanInSpecifications = null)
     {
         return SucceededWithMutations(
             output,
@@ -142,8 +142,8 @@ public sealed record TaskExecutionResult
     }
 
     public static TaskExecutionResult Canceled(
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         return new TaskExecutionResult(
@@ -155,8 +155,8 @@ public sealed record TaskExecutionResult
 
     public static TaskExecutionResult Failed(
         ExecutionFailureKind failureKind,
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability? recoverability = null)
     {
         return new TaskExecutionResult(

@@ -10,5 +10,5 @@ public interface IExecutionContext
 
     IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses { get; }
 
-    IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs { get; }
+    IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs { get; }
 }

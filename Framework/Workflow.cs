@@ -98,7 +98,7 @@ public class Workflow
         MarkRunning();
     }
 
-    internal void MarkSucceeded(ExecutionOutput output = null)
+    internal void MarkSucceeded(ExecutionOutput? output = null)
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -115,8 +115,8 @@ public class Workflow
     }
 
     internal void MarkCanceled(
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability recoverability = ExecutionRecoverability.Retryable)
     {
         WorkflowStatus previousStatus = Status;
@@ -141,8 +141,8 @@ public class Workflow
 
     internal void MarkFailed(
         ExecutionFailureKind failureKind,
-        ExecutionOutput output = null,
-        ErrorInfo error = null,
+        ExecutionOutput? output = null,
+        ErrorInfo? error = null,
         ExecutionRecoverability? recoverability = null)
     {
         WorkflowStatus previousStatus = Status;
@@ -170,7 +170,7 @@ public class Workflow
     internal void MarkFailed(
         Exception exception,
         ExecutionFailureKind failureKind,
-        ExecutionOutput output = null,
+        ExecutionOutput? output = null,
         ExecutionRecoverability? recoverability = null)
     {
         MarkFailed(
@@ -253,13 +253,13 @@ public class Workflow
 
     internal void RuntimeAddDependency(TaskDependencySpecification dependency)
     {
-        if (!_tasksById.TryGetValue(dependency.PrerequisiteTaskId, out Task prerequisiteTask))
+        if (!_tasksById.TryGetValue(dependency.PrerequisiteTaskId, out Task? prerequisiteTask))
         {
             throw new InvalidOperationException(
                 $"Workflow {WorkflowId} references missing prerequisite task {dependency.PrerequisiteTaskId}.");
         }
 
-        if (!_tasksById.TryGetValue(dependency.DependentTaskId, out Task dependentTask))
+        if (!_tasksById.TryGetValue(dependency.DependentTaskId, out Task? dependentTask))
         {
             throw new InvalidOperationException(
                 $"Workflow {WorkflowId} references missing dependent task {dependency.DependentTaskId}.");
@@ -323,7 +323,7 @@ public class Workflow
         return _taskGraph.GetTasks();
     }
 
-    internal bool TryGetTask(TaskId taskId, out Task task)
+    internal bool TryGetTask(TaskId taskId, out Task? task)
     {
         return _tasksById.TryGetValue(taskId, out task);
     }
@@ -333,7 +333,7 @@ public class Workflow
         return _taskGraph.GetDependencies(task);
     }
 
-    public void RunToCompletion(ITaskExecutor taskExecutor = null, IWorkflowObserver observer = null)
+    public void RunToCompletion(ITaskExecutor? taskExecutor = null, IWorkflowObserver? observer = null)
     {
         if (observer is not null)
         {
@@ -344,7 +344,7 @@ public class Workflow
         orchestrator.RunToCompletion(this);
     }
 
-    public void SetObserver(IWorkflowObserver observer)
+    public void SetObserver(IWorkflowObserver? observer)
     {
         _observer = observer ?? NullWorkflowObserver.Instance;
 

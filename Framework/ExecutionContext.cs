@@ -28,7 +28,7 @@ internal class ExecutionContext : IExecutionContext
 
     public IReadOnlyDictionary<TaskId, TaskStatus> DependencyStatuses => _dependencyStatuses;
 
-    public IReadOnlyDictionary<TaskId, ExecutionOutput> DependencyOutputs => _dependencyStatuses.ToDictionary(
+    public IReadOnlyDictionary<TaskId, ExecutionOutput?> DependencyOutputs => _dependencyStatuses.ToDictionary(
         pair => pair.Key,
         pair => pair.Value.Output);
 }

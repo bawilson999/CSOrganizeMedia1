@@ -15,7 +15,7 @@ internal sealed class WorkflowExecutionState : ExecutionStateCore
         _taskExecutionStates.Add(taskExecutionState.TaskId, taskExecutionState);
     }
 
-    internal void TryGetTaskExecutionState(TaskId taskId, out TaskExecutionState taskExecutionState)
+    internal void TryGetTaskExecutionState(TaskId taskId, out TaskExecutionState? taskExecutionState)
     {
         _taskExecutionStates.TryGetValue(taskId, out taskExecutionState);
     }
