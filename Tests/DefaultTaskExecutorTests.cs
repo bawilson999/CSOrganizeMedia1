@@ -9,7 +9,7 @@ public class DefaultTaskExecutorTests
     {
         DefaultTaskExecutor executor = new DefaultTaskExecutor();
         IExecutionContext executionContext = new FakeExecutionContext(
-            new TaskSpecification(new TaskId("A"), "ScanDirectory"));
+            new TaskSpecification(new TaskId("A"), new TaskType("ScanDirectory")));
 
         TaskExecutionResult result = executor.Execute(executionContext);
 
@@ -24,8 +24,8 @@ public class DefaultTaskExecutorTests
         IExecutionContext executionContext = new FakeExecutionContext(
             new TaskSpecification(
                 TaskId: new TaskId("A"),
-                TaskType: "ScanDirectory",
-                InputType: "application/json",
+                TaskType: new TaskType("ScanDirectory"),
+                InputType: new InputType("application/json"),
                 InputJson: "{ \"path\": \"c:/media\" }"));
 
         TaskExecutionResult result = executor.Execute(executionContext);
@@ -43,7 +43,7 @@ public class DefaultTaskExecutorTests
         IExecutionContext executionContext = new FakeExecutionContext(
             new TaskSpecification(
                 TaskId: new TaskId("A"),
-                TaskType: "ScanDirectory",
+                TaskType: new TaskType("ScanDirectory"),
                 InputJson: "{ \"path\": \"c:/media\" }"));
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => executor.Execute(executionContext));

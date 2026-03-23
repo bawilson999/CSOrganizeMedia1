@@ -247,8 +247,8 @@ public record WorkflowSpecification(
 
 public record TaskSpecification(
     TaskId TaskId,
-    string TaskType,
-    string InputType = null,
+    TaskType TaskType,
+    InputType? InputType = null,
     string InputJson = null,
     TaskId? SpawnedByTaskId = null);
 
@@ -329,12 +329,12 @@ WorkflowSpecification specification = new WorkflowSpecification(
     WorkflowId: new WorkflowId("StaticWorkflow"),
     Tasks: new[]
     {
-        new TaskSpecification(new TaskId("A"), "TaskA"),
-        new TaskSpecification(new TaskId("B"), "TaskB"),
-        new TaskSpecification(new TaskId("C"), "TaskC"),
-        new TaskSpecification(new TaskId("D"), "TaskD"),
-        new TaskSpecification(new TaskId("E"), "TaskE"),
-        new TaskSpecification(new TaskId("F"), "TaskF")
+        new TaskSpecification(new TaskId("A"), new TaskType("TaskA")),
+        new TaskSpecification(new TaskId("B"), new TaskType("TaskB")),
+        new TaskSpecification(new TaskId("C"), new TaskType("TaskC")),
+        new TaskSpecification(new TaskId("D"), new TaskType("TaskD")),
+        new TaskSpecification(new TaskId("E"), new TaskType("TaskE")),
+        new TaskSpecification(new TaskId("F"), new TaskType("TaskF"))
     },
     Dependencies: new[]
     {
@@ -382,12 +382,12 @@ WorkflowSpecification specification = new WorkflowSpecification(
     {
         new TaskSpecification(
             TaskId: new TaskId("A"),
-            TaskType: "ScanMp4Directory",
-            InputType: "application/json",
+            TaskType: new TaskType("ScanMp4Directory"),
+            InputType: new InputType("application/json"),
             InputJson: "{ \"path\": \"c:/media\" }"),
         new TaskSpecification(
             TaskId: new TaskId("C"),
-            TaskType: "AggregateMp4Results")
+            TaskType: new TaskType("AggregateMp4Results"))
     },
     Dependencies: Array.Empty<TaskDependencySpecification>(),
     MaxConcurrency: 4);
@@ -400,9 +400,9 @@ return TaskExecutionResult.Succeeded(
     output: new TextExecutionOutput("Discovered 3 mp4 files"),
     spawnedTasks: new[]
     {
-        new TaskSpecification(new TaskId("B-1"), "ProcessMp4", "application/json", "{ \"file\": \"a.mp4\" }"),
-        new TaskSpecification(new TaskId("B-2"), "ProcessMp4", "application/json", "{ \"file\": \"b.mp4\" }"),
-        new TaskSpecification(new TaskId("B-3"), "ProcessMp4", "application/json", "{ \"file\": \"c.mp4\" }")
+        new TaskSpecification(new TaskId("B-1"), new TaskType("ProcessMp4"), new InputType("application/json"), "{ \"file\": \"a.mp4\" }"),
+        new TaskSpecification(new TaskId("B-2"), new TaskType("ProcessMp4"), new InputType("application/json"), "{ \"file\": \"b.mp4\" }"),
+        new TaskSpecification(new TaskId("B-3"), new TaskType("ProcessMp4"), new InputType("application/json"), "{ \"file\": \"c.mp4\" }")
     },
     fanInSpecifications: new[]
     {

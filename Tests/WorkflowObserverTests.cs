@@ -45,10 +45,10 @@ public class WorkflowObserverTests
             [
                 new TaskSpecification(
                     TaskId: new TaskId("A"),
-                    TaskType: "ScanMp4Directory"),
+                    TaskType: new TaskType("ScanMp4Directory")),
                 new TaskSpecification(
                     TaskId: new TaskId("C"),
-                    TaskType: "AggregateMp4Results")
+                    TaskType: new TaskType("AggregateMp4Results"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>(),
             MaxConcurrency: 4);
@@ -91,7 +91,7 @@ public class WorkflowObserverTests
         observer.OnTaskAdded(new TaskAddedEvent(
             WorkflowId: new WorkflowId("W0"),
             TaskId: new TaskId("B"),
-            TaskSpecification: new TaskSpecification(new TaskId("B"), "ChildTask"),
+            TaskSpecification: new TaskSpecification(new TaskId("B"), new TaskType("ChildTask")),
             TaskStatus: new TaskStatus(new WorkflowId("W0"), new TaskId("B")),
             Timestamp: DateTime.UtcNow));
 

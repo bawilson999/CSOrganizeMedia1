@@ -2,7 +2,7 @@ namespace OrganizeMedia.Framework;
 
 public readonly record struct WorkflowId(string Value)
 {
-    public static implicit operator WorkflowId(string value)
+    public static explicit operator WorkflowId(string value)
     {
         return new WorkflowId(value);
     }

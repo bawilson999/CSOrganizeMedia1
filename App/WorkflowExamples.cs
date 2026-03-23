@@ -21,8 +21,8 @@ internal static class WorkflowExamples
             taskSpecifications.Add(
                 new TaskSpecification(
                     TaskId: taskId,
-                    TaskType: "StaticTask",
-                    InputType: "application/json",
+                    TaskType: new TaskType("StaticTask"),
+                    InputType: new InputType("application/json"),
                     InputJson: $"{{\"taskIndex\":{i}}}"));
         }
 

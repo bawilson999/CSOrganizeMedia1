@@ -24,8 +24,8 @@ internal static class WorkflowTestSupport
             taskSpecifications.Add(
                 new TaskSpecification(
                     TaskId: taskId,
-                    TaskType: taskType,
-                    InputType: "application/json",
+                    TaskType: new TaskType(taskType),
+                    InputType: new InputType("application/json"),
                     InputJson: $"{{\"taskIndex\":{i}}}"));
         }
 
@@ -60,7 +60,7 @@ internal static class WorkflowTestSupport
         WorkflowSpecification specification = new WorkflowSpecification(
             WorkflowId: new WorkflowId(workflowId),
             Tasks: taskIds
-                .Select(taskId => new TaskSpecification(new TaskId(taskId), taskId))
+                .Select(taskId => new TaskSpecification(new TaskId(taskId), new TaskType(taskId)))
                 .ToArray(),
             Dependencies: dependencies.ToArray());
 
@@ -159,8 +159,8 @@ internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
     {
         return new TaskSpecification(
             TaskId: new TaskId(taskId),
-            TaskType: "ProcessMp4",
-            InputType: "application/json",
+            TaskType: new TaskType("ProcessMp4"),
+            InputType: new InputType("application/json"),
             InputJson: $"{{ \"file\": \"{fileName}\" }}");
     }
 }

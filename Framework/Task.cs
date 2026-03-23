@@ -5,7 +5,7 @@ public class Task
     private IWorkflowObserver _observer;
 
     internal Task(WorkflowId workflowId, TaskId taskId)
-        : this(workflowId, new TaskSpecification(taskId, TaskType: "Task"))
+        : this(workflowId, new TaskSpecification(taskId, TaskType: new TaskType("Task")))
     {
     }
 

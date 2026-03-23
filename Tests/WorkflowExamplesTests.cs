@@ -37,12 +37,12 @@ public class WorkflowExamplesTests
             [
                 new TaskSpecification(
                     TaskId: new TaskId("A"),
-                    TaskType: "ScanMp4Directory",
-                    InputType: "application/json",
+                    TaskType: new TaskType("ScanMp4Directory"),
+                    InputType: new InputType("application/json"),
                     InputJson: "{ \"path\": \"c:/media\" }"),
                 new TaskSpecification(
                     TaskId: new TaskId("C"),
-                    TaskType: "AggregateMp4Results")
+                    TaskType: new TaskType("AggregateMp4Results"))
             ],
             Dependencies: Array.Empty<TaskDependencySpecification>(),
             MaxConcurrency: 4);
