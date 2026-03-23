@@ -9,7 +9,7 @@ public class WorkflowExamplesTests
     {
         Workflow workflow = WorkflowTestSupport.FromAdjacencyArray("W0", [[1], [], [1], [2], [2]]);
 
-        RecordingTaskExecutor taskExecutor = new RecordingTaskExecutor(
+        RecordingFakeTaskExecutor taskExecutor = new RecordingFakeTaskExecutor(
             new Dictionary<string, IReadOnlyList<TaskExecutionResult>>
             {
                 ["T0"] = [TaskExecutionResult.Succeeded(new TextExecutionOutput("T0 complete"))],
@@ -48,7 +48,7 @@ public class WorkflowExamplesTests
             MaxConcurrency: 4);
 
         Workflow workflow = Workflow.FromSpecification(specification);
-        DynamicFanOutTaskExecutor taskExecutor = new DynamicFanOutTaskExecutor();
+        DynamicFanOutFakeTaskExecutor taskExecutor = new DynamicFanOutFakeTaskExecutor();
 
         workflow.RunToCompletion(taskExecutor);
 

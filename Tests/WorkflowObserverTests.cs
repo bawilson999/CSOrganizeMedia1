@@ -14,7 +14,7 @@ public class WorkflowObserverTests
             dependencies: Array.Empty<TaskDependencySpecification>());
 
         RecordingWorkflowObserver observer = new RecordingWorkflowObserver();
-        RecordingTaskExecutor taskExecutor = new RecordingTaskExecutor(
+        RecordingFakeTaskExecutor taskExecutor = new RecordingFakeTaskExecutor(
             new Dictionary<string, IReadOnlyList<TaskExecutionResult>>
             {
                 ["A"] = [TaskExecutionResult.Succeeded(new TextExecutionOutput("done"))]
@@ -56,7 +56,7 @@ public class WorkflowObserverTests
         Workflow workflow = Workflow.FromSpecification(specification);
         RecordingWorkflowObserver observer = new RecordingWorkflowObserver();
 
-        workflow.RunToCompletion(new DynamicFanOutTaskExecutor(), observer);
+        workflow.RunToCompletion(new DynamicFanOutFakeTaskExecutor(), observer);
 
         Assert.Equal(["B-1", "B-2", "B-3"], observer.TaskAddedEvents.Select(task => task.TaskId.Value));
         Assert.Equal(

@@ -68,11 +68,11 @@ internal static class WorkflowTestSupport
     }
 }
 
-internal sealed class RecordingTaskExecutor : ITaskExecutor
+internal sealed class RecordingFakeTaskExecutor : ITaskExecutor
 {
     private readonly Dictionary<string, Queue<TaskExecutionResult>> _resultsByTaskId;
 
-    public RecordingTaskExecutor(Dictionary<string, IReadOnlyList<TaskExecutionResult>> resultsByTaskId)
+    public RecordingFakeTaskExecutor(Dictionary<string, IReadOnlyList<TaskExecutionResult>> resultsByTaskId)
     {
         _resultsByTaskId = resultsByTaskId.ToDictionary(
             pair => pair.Key,
@@ -95,7 +95,7 @@ internal sealed class RecordingTaskExecutor : ITaskExecutor
     }
 }
 
-internal sealed class DynamicFanOutTaskExecutor : ITaskExecutor
+internal sealed class DynamicFanOutFakeTaskExecutor : ITaskExecutor
 {
     public List<string> ExecutedTaskIds { get; } = new List<string>();
 

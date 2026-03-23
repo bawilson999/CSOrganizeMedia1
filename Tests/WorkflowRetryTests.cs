@@ -15,7 +15,7 @@ public class WorkflowRetryTests
                 new TaskDependencySpecification(new TaskId("A"), new TaskId("B"))
             ]);
 
-        RecordingTaskExecutor taskExecutor = new RecordingTaskExecutor(
+        RecordingFakeTaskExecutor taskExecutor = new RecordingFakeTaskExecutor(
             new Dictionary<string, IReadOnlyList<TaskExecutionResult>>
             {
                 ["A"] =
@@ -56,7 +56,7 @@ public class WorkflowRetryTests
             taskIds: ["A"],
             dependencies: Array.Empty<TaskDependencySpecification>());
 
-        RecordingTaskExecutor taskExecutor = new RecordingTaskExecutor(
+        RecordingFakeTaskExecutor taskExecutor = new RecordingFakeTaskExecutor(
             new Dictionary<string, IReadOnlyList<TaskExecutionResult>>
             {
                 ["A"] =
