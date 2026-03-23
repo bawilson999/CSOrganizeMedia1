@@ -30,7 +30,7 @@ public class WorkflowOrchestrator
 
                 if (readyQueue.Count == 0)
                 {
-                    if (workflow.GetTasks().All(IsTaskCompleteForWorkflowSuccess))
+                    if (workflow.GetTasks().All(task => task.IsCompleteForWorkflowSuccess()))
                     {
                         workflow.MarkSucceeded();
                         return;
@@ -104,46 +104,15 @@ public class WorkflowOrchestrator
             if (readyQueue.Count >= maxConcurrency)
                 return;
 
-            if (!IsTaskSchedulable(task))
+            if (!task.IsSchedulable())
                 continue;
 
-            if (workflow.GetDependencies(task).All(IsDependencySatisfied))
+            if (workflow.GetDependencies(task).All(dependency => dependency.HasSatisfiedDependencyExecution()))
             {
-                MarkTaskReady(task, readyQueue);
+                task.MarkReadyAndQueued();
+                readyQueue.Enqueue(task);
             }
         }
-    }
-
-    private static bool IsTaskCompleteForWorkflowSuccess(Task task)
-    {
-        return task.Status.ExecutionPhase == ExecutionPhase.Finished &&
-               !IsRestartRecoverability(task.Status.Recoverability);
-    }
-
-    private static bool IsTaskSchedulable(Task task)
-    {
-        return task.Status.ExecutionPhase == ExecutionPhase.NotStarted ||
-               (task.Status.ExecutionPhase == ExecutionPhase.Finished &&
-                IsRestartRecoverability(task.Status.Recoverability));
-    }
-
-    private static bool IsDependencySatisfied(Task dependency)
-    {
-        return dependency.Status.ExecutionPhase == ExecutionPhase.Finished &&
-               !IsRestartRecoverability(dependency.Status.Recoverability);
-    }
-
-    private static bool IsRestartRecoverability(ExecutionRecoverability recoverability)
-    {
-        return recoverability == ExecutionRecoverability.Retryable ||
-               recoverability == ExecutionRecoverability.Resumable;
-    }
-
-    private static void MarkTaskReady(Task task, Queue<Task> readyQueue)
-    {
-        task.MarkReadyToRun();
-        task.MarkQueued();
-        readyQueue.Enqueue(task);
     }
 
     private static void ApplyExecutionResult(Task task, TaskExecutionResult executionResult)

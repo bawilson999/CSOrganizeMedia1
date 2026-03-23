@@ -179,7 +179,7 @@ public class Workflow
             recoverability: recoverability);
     }
 
-    public void AddTask(Task task)
+    internal void AddTask(Task task)
     {
         ArgumentNullException.ThrowIfNull(task);
 
@@ -194,7 +194,7 @@ public class Workflow
         _executionState.AddTaskExecutionState(task.ExecutionState);
     }
 
-    public void AddAdjacency(Task task, Task adjacentTask)
+    internal void AddAdjacency(Task task, Task adjacentTask)
     {
         _taskGraph.AddAdjacency(task, adjacentTask);
     }

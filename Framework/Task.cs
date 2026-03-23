@@ -46,6 +46,31 @@ public class Task
         return $"/{WorkflowId}/{TaskId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 
+    internal bool IsCompleteForWorkflowSuccess()
+    {
+        return Status.ExecutionPhase == ExecutionPhase.Finished &&
+               !ExecutionTransitionSupport.IsRestartRecoverability(Status.Recoverability);
+    }
+
+    internal bool IsSchedulable()
+    {
+        return Status.ExecutionPhase == ExecutionPhase.NotStarted ||
+               (Status.ExecutionPhase == ExecutionPhase.Finished &&
+                ExecutionTransitionSupport.IsRestartRecoverability(Status.Recoverability));
+    }
+
+    internal bool HasSatisfiedDependencyExecution()
+    {
+        return Status.ExecutionPhase == ExecutionPhase.Finished &&
+               !ExecutionTransitionSupport.IsRestartRecoverability(Status.Recoverability);
+    }
+
+    internal void MarkReadyAndQueued()
+    {
+        MarkReadyToRun();
+        MarkQueued();
+    }
+
     internal void MarkReadyToRun()
     {
         TaskStatus previousStatus = Status;
