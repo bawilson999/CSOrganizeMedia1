@@ -318,12 +318,12 @@ public class Workflow
         NotifyFanInExpanded(fanInSpecification.JoinTaskId, prerequisiteTaskIds.ToArray());
     }
 
-    public TaskList TopologicalSort()
+    public IReadOnlyList<Task> TopologicalSort()
     {
         return _taskGraph.TopologicalSort();
     }
 
-    internal TaskList GetTasks()
+    internal IReadOnlyCollection<Task> GetTasks()
     {
         return _taskGraph.GetTasks();
     }
@@ -333,12 +333,12 @@ public class Workflow
         return _tasksById.TryGetValue(taskId, out task);
     }
 
-    internal TaskList GetAdjacencies(Task task)
+    internal IReadOnlyCollection<Task> GetAdjacencies(Task task)
     {
         return _taskGraph.GetAdjacencies(task);
     }
 
-    internal TaskList GetDependencies(Task task)
+    internal IReadOnlyCollection<Task> GetDependencies(Task task)
     {
         return _taskGraph.GetDependencies(task);
     }
@@ -362,24 +362,6 @@ public class Workflow
         {
             task.SetObserver(_observer);
         }
-    }
-
-    public string ToGraphDisplayString()
-    {
-        TaskListDictionary adjacencyList = _taskGraph.GetAdjacencyList();
-        TaskListDictionary dependencyList = _taskGraph.GetDependencyList();
-        TaskList tasks = TopologicalSort();
-
-        return string.Join(
-            Environment.NewLine,
-            [
-                "Adjacency list:",
-                adjacencyList.ToDisplayString(),
-                "Dependency list:",
-                dependencyList.ToDisplayString(),
-                "Topological order:",
-                tasks.ToDisplayString()
-            ]);
     }
 
     private void NotifyTransition(WorkflowStatus previousStatus)

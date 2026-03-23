@@ -2,13 +2,13 @@ namespace OrganizeMedia.Framework;
 
 public class TaskGraph
 {
-    TaskListDictionary _adjacencyList;
-    TaskListDictionary _dependencyList;
+    private readonly Dictionary<Task, List<Task>> _adjacencyList;
+    private readonly Dictionary<Task, List<Task>> _dependencyList;
 
     public TaskGraph()
     {
-        _adjacencyList = new TaskListDictionary();
-        _dependencyList = new TaskListDictionary();
+        _adjacencyList = new Dictionary<Task, List<Task>>();
+        _dependencyList = new Dictionary<Task, List<Task>>();
     }
 
     public void AddTask(Task task)
@@ -21,8 +21,8 @@ public class TaskGraph
             throw new InvalidOperationException($"Task graph already contains task {task.TaskId}.");
         }
 
-        _adjacencyList.Add(task, new TaskList());
-        _dependencyList.Add(task, new TaskList());
+        _adjacencyList.Add(task, new List<Task>());
+        _dependencyList.Add(task, new List<Task>());
     }
 
     public void AddAdjacency(Task task, Task adjacentTask)
@@ -54,34 +54,22 @@ public class TaskGraph
         _dependencyList[adjacentTask].Add(task);
     }
 
-    public TaskListDictionary GetAdjacencyList()
-    {
-        TaskListDictionary adjacencyList = new TaskListDictionary(_adjacencyList);
-        return adjacencyList;
-    }
-
-    public TaskList GetAdjacencies(Task task)
+    public IReadOnlyCollection<Task> GetAdjacencies(Task task)
     {
         return _adjacencyList[task];
     }
 
-    public TaskList GetTasks()
+    public IReadOnlyCollection<Task> GetTasks()
     {
-        return new TaskList(_adjacencyList.Keys);
+        return _adjacencyList.Keys.ToArray();
     }
 
-    public TaskListDictionary GetDependencyList()
-    {
-        TaskListDictionary dependencyList = new TaskListDictionary(_dependencyList);
-        return dependencyList;
-    }
-
-    public TaskList GetDependencies(Task task)
+    public IReadOnlyCollection<Task> GetDependencies(Task task)
     {
         return _dependencyList[task];
     }
 
-    public TaskList TopologicalSort()
+    public IReadOnlyList<Task> TopologicalSort()
     {
         Stack<Task> stack = new Stack<Task>();
         HashSet<Task> visited = new HashSet<Task>();
@@ -94,7 +82,7 @@ public class TaskGraph
             }
         }
 
-        return new TaskList(stack);
+        return stack.ToArray();
     }
 
     private void FindTopologicalSort(Task task, HashSet<Task> visited, Stack<Task> stack)
@@ -134,27 +122,4 @@ public class TaskGraph
 
         return false;
     }
-
-    // public TaskListDictionary BuildDependencyList()
-    // {
-    //     TaskListDictionary dependencyList = new TaskListDictionary();
-
-    //     foreach ((Task task, TaskList adjacentTasks) in _adjacencyList)
-    //     {
-    //         foreach (Task adjacentTask in adjacentTasks)
-    //         {
-    //             if (dependencyList.TryGetValue(adjacentTask, out TaskList dependentTasks))
-    //             {
-    //                 dependentTasks.Add(task);
-    //             }
-    //             else
-    //             {
-    //                 dependentTasks = [task];
-    //                 dependencyList.Add(adjacentTask, dependentTasks);
-    //             }
-    //         }
-    //     }
-
-    //     return dependencyList;
-    // }
 }
