@@ -14,7 +14,7 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
     public void OnTaskTransition(TaskTransitionEvent transitionEvent)
     {
         ArgumentNullException.ThrowIfNull(transitionEvent);
-        _writer.WriteLine(ExecutionDisplayFormatter.FormatTaskStatus(
+        _writer.WriteLine(TaskStatusFormatter.Format(
             transitionEvent.WorkflowId,
             transitionEvent.TaskId,
             transitionEvent.CurrentStatus));
@@ -23,7 +23,7 @@ public sealed class TextWriterWorkflowObserver : IWorkflowObserver
     public void OnWorkflowTransition(WorkflowTransitionEvent transitionEvent)
     {
         ArgumentNullException.ThrowIfNull(transitionEvent);
-        _writer.WriteLine(ExecutionDisplayFormatter.FormatWorkflowStatus(
+        _writer.WriteLine(WorkflowStatusFormatter.Format(
             transitionEvent.WorkflowId,
             transitionEvent.CurrentStatus));
     }

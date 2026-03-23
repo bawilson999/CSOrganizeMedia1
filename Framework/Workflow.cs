@@ -50,11 +50,6 @@ public class Workflow
 
     public WorkflowStatus Status => _executionState.ToStatus();
 
-    public string ToDisplayString()
-    {
-        return ExecutionDisplayFormatter.FormatWorkflowStatus(WorkflowId, Status);
-    }
-
     private void MarkReadyToRun()
     {
         WorkflowStatus previousStatus = Status;

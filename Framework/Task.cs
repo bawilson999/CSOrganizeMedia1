@@ -40,11 +40,6 @@ public class Task
         return $"/{WorkflowId}/{TaskId}";
     }
 
-    public string ToDisplayString()
-    {
-        return ExecutionDisplayFormatter.FormatTaskStatus(WorkflowId, TaskId, Status);
-    }
-
     internal bool IsCompleteForWorkflowSuccess()
     {
         return Status.ExecutionPhase == ExecutionPhase.Finished &&
