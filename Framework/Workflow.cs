@@ -7,12 +7,12 @@ public class Workflow
     private readonly Dictionary<TaskId, Task> _tasksById;
     private IWorkflowObserver _observer = NullWorkflowObserver.Instance;
 
-    public Workflow(WorkflowId workflowId)
+    internal Workflow(WorkflowId workflowId)
         : this(workflowId, maxConcurrency: null)
     {
     }
 
-    public Workflow(WorkflowId workflowId, int? maxConcurrency)
+    internal Workflow(WorkflowId workflowId, int? maxConcurrency)
     {
         WorkflowId = workflowId;
         MaxConcurrency = maxConcurrency;
