@@ -1,24 +1,22 @@
 namespace OrganizeMedia.Framework;
 
-public class WorkflowOrchestrator
+internal sealed class WorkflowOrchestrator
 {
     private readonly ITaskExecutor _taskExecutor;
 
-    public WorkflowOrchestrator(ITaskExecutor taskExecutor = null)
+    internal WorkflowOrchestrator(ITaskExecutor taskExecutor = null)
     {
         _taskExecutor = taskExecutor ?? new DefaultTaskExecutor();
     }
 
-    public void RunToCompletion(Workflow workflow)
+    internal void RunToCompletion(Workflow workflow)
     {
         ArgumentNullException.ThrowIfNull(workflow);
 
         Task currentTask = null;
         int maxConcurrency = workflow.MaxConcurrency ?? int.MaxValue;
 
-        workflow.MarkReadyToRun();
-        workflow.MarkQueued();
-        workflow.MarkRunning();
+        workflow.StartExecution();
 
         try
         {

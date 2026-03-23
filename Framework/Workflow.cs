@@ -56,7 +56,7 @@ public class Workflow
         return $"/{WorkflowId} {status.ExecutionPhase}, {status.ExecutionOutcome}, {status.FailureKind}, {status.Recoverability}";
     }
 
-    internal void MarkReadyToRun()
+    private void MarkReadyToRun()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsureCanMarkReadyToRun(
@@ -73,7 +73,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    internal void MarkQueued()
+    private void MarkQueued()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -85,7 +85,7 @@ public class Workflow
         NotifyTransition(previousStatus);
     }
 
-    internal void MarkRunning()
+    private void MarkRunning()
     {
         WorkflowStatus previousStatus = Status;
         ExecutionTransitionSupport.EnsurePhase(
@@ -95,6 +95,13 @@ public class Workflow
             ExecutionPhase.Queued);
         _executionState.ExecutionPhase = ExecutionPhase.Running;
         NotifyTransition(previousStatus);
+    }
+
+    internal void StartExecution()
+    {
+        MarkReadyToRun();
+        MarkQueued();
+        MarkRunning();
     }
 
     internal void MarkSucceeded(ExecutionOutput output = null)
